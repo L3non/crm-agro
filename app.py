@@ -132,6 +132,9 @@ def criar_banco():
     conn.close()
 
 
+from werkzeug.security import generate_password_hash, check_password_hash
+import re
+
 # ================= LOGIN =================
 @app.route("/", methods=["GET","POST"])
 def login():
@@ -142,12 +145,12 @@ def login():
         conn = conectar_db()
         c = conn.cursor()
 
-        # 🔒 BUSCAR USUÁRIO (SEM SENHA NO SQL)
+        # buscar usuário
         c.execute("SELECT * FROM usuarios WHERE usuario=?", (usuario,))
         user = c.fetchone()
         conn.close()
 
-        # 🔒 VERIFICAR SENHA COM HASH
+        # verificar senha hash
         if user and check_password_hash(user["senha"], senha):
             session["logado"] = True
             session["id_usuario"] = user["id"]
@@ -166,14 +169,12 @@ def logout():
     session.clear()
     return redirect("/")
 
-# ================= TROCAR SENHA =================
+
+# ================= TROCAR SENHA (USUÁRIO LOGADO) =================
 @app.route("/trocar_senha", methods=["GET", "POST"])
 def trocar_senha():
     if not session.get("logado"):
         return redirect("/")
-
-    from werkzeug.security import generate_password_hash, check_password_hash
-    import re
 
     if request.method == "POST":
         senha_atual = request.form["senha_atual"]
@@ -203,18 +204,57 @@ def trocar_senha():
             conn.close()
             return "❌ Senhas não conferem"
 
-        # salvar hash
+        # salvar nova senha com hash
         nova_hash = generate_password_hash(nova_senha)
         c.execute("UPDATE usuarios SET senha=? WHERE id=?", (nova_hash, id_usuario))
         conn.commit()
         conn.close()
 
-        # 🔒 LOGOUT AUTOMÁTICO
+        # logout automático
         session.clear()
         return redirect("/")
 
     return render_template("trocar_senha.html")
+    
+# ================= CRIAR USUÁRIO (ADMIN) =================
+@app.route("/admin_criar_usuario", methods=["POST"])
+def admin_criar_usuario():
+    if session.get("tipo") != "ADMIN":
+        return "Acesso negado"
 
+    nome = request.form["nome"]
+    usuario = request.form["usuario"]
+    tipo = request.form["tipo"]  # ADMIN ou VENDEDOR
+
+    # senha padrão 1234 COM HASH
+    senha_hash = generate_password_hash("1234")
+
+    conn = conectar_db()
+    c = conn.cursor()
+    c.execute("""
+        INSERT INTO usuarios (nome, usuario, senha, tipo)
+        VALUES (?, ?, ?, ?)
+    """, (nome, usuario, senha_hash, tipo))
+    conn.commit()
+    conn.close()
+
+    return "Usuário criado com senha 1234"
+
+# ================= RESETAR SENHA USUÁRIO =================
+@app.route("/admin_reset_senha/<int:id_usuario>")
+def admin_reset_senha(id_usuario):
+    if session.get("tipo") != "ADMIN":
+        return "Acesso negado"
+
+    senha_hash = generate_password_hash("1234")
+
+    conn = conectar_db()
+    c = conn.cursor()
+    c.execute("UPDATE usuarios SET senha=? WHERE id=?", (senha_hash, id_usuario))
+    conn.commit()
+    conn.close()
+
+    return "Senha resetada para 1234"
 
 
 # ================= DASHBOARD =================
@@ -1284,6 +1324,7 @@ def admin_deletar_usuario(id):
 
 # ================= START =================
 criar_banco()
+
 
 
 
