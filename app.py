@@ -956,6 +956,7 @@ def alertas():
     conn.close()
     return render_template("alertas.html", alertas=alertas)
 
+
 # ================= ADIAR ALERTA =================
 @app.route("/alertas/adiar", methods=["POST"])
 def alertas_adiar():
@@ -1007,6 +1008,7 @@ def alertas_descartar():
 
     cliente = request.form["cliente"]
     produto = request.form["produto"]
+    id_usuario = session["id_usuario"]
 
     # 31/12/2099 = descartado praticamente permanente
     ocultar_ate = "2099-12-31"
@@ -1015,16 +1017,18 @@ def alertas_descartar():
     conn = conectar_db()
     c = conn.cursor()
 
-    c.execute(
-        "DELETE FROM alertas_controle WHERE cliente=? AND produto=?",
-        (cliente, produto)
-    )
+    # 🔒 APAGAR CONTROLE APENAS DO USUÁRIO LOGADO
+    c.execute("""
+        DELETE FROM alertas_controle 
+        WHERE cliente=? AND produto=? AND id_usuario=?
+    """, (cliente, produto, id_usuario))
 
+    # 🔒 INSERIR DESCARTE COM USUÁRIO
     c.execute("""
         INSERT INTO alertas_controle
-        (cliente, produto, ocultar_ate, observacao)
-        VALUES (?,?,?,?)
-    """, (cliente, produto, ocultar_ate, observacao))
+        (cliente, produto, ocultar_ate, observacao, id_usuario)
+        VALUES (?,?,?,?,?)
+    """, (cliente, produto, ocultar_ate, observacao, id_usuario))
 
     conn.commit()
     conn.close()
@@ -1280,5 +1284,6 @@ def admin_deletar_usuario(id):
 
 # ================= START =================
 criar_banco()
+
 
 
