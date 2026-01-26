@@ -121,7 +121,11 @@ def criar_banco():
 
 
 
-# ================= LOGIN (BLINDADO) =================
+# ================= AUTH IMPORTS =================
+from werkzeug.security import generate_password_hash, check_password_hash
+import re
+
+# ================= LOGIN =================
 @app.route("/", methods=["GET","POST"])
 def login():
     if request.method == "POST":
@@ -134,24 +138,27 @@ def login():
         user = c.fetchone()
         conn.close()
 
-        if user:
-            senha_banco = user["senha"] or ""
+        if not user:
+            return "❌ Usuário ou senha inválidos"
 
-            # aceita senha antiga SEM hash (evita travar)
-            if not senha_banco.startswith("scrypt") and not senha_banco.startswith("pbkdf2"):
-                if senha == senha_banco:
-                    session["logado"] = True
-                    session["id_usuario"] = user["id"]
-                    session["nome_usuario"] = user["nome"]
-                    session["tipo"] = user["tipo"]
-                    return redirect("/dashboard")
-            else:
-                if check_password_hash(senha_banco, senha):
-                    session["logado"] = True
-                    session["id_usuario"] = user["id"]
-                    session["nome_usuario"] = user["nome"]
-                    session["tipo"] = user["tipo"]
-                    return redirect("/dashboard")
+        senha_banco = user["senha"] or ""
+
+        # ACEITA SENHA ANTIGA SEM HASH (LEGADO)
+        if not senha_banco.startswith("scrypt") and not senha_banco.startswith("pbkdf2"):
+            if senha == senha_banco:
+                session["logado"] = True
+                session["id_usuario"] = user["id"]
+                session["nome_usuario"] = user["nome"]
+                session["tipo"] = user["tipo"]
+                return redirect("/dashboard")
+
+        # SENHA HASH
+        if check_password_hash(senha_banco, senha):
+            session["logado"] = True
+            session["id_usuario"] = user["id"]
+            session["nome_usuario"] = user["nome"]
+            session["tipo"] = user["tipo"]
+            return redirect("/dashboard")
 
         return "❌ Usuário ou senha inválidos"
 
@@ -175,7 +182,6 @@ def trocar_senha():
         senha_atual = request.form["senha_atual"]
         nova_senha = request.form["nova_senha"]
         confirmar = request.form["confirmar_senha"]
-
         id_usuario = session["id_usuario"]
 
         conn = conectar_db()
@@ -189,7 +195,7 @@ def trocar_senha():
 
         if len(nova_senha) < 8 or not re.search(r"[0-9]", nova_senha) or not re.search(r"[!@#$%^&*]", nova_senha):
             conn.close()
-            return "❌ Senha fraca (mín 8 caracteres, número e símbolo)"
+            return "❌ Senha fraca"
 
         if nova_senha != confirmar:
             conn.close()
@@ -206,8 +212,7 @@ def trocar_senha():
     return render_template("trocar_senha.html")
 
 
-
-# ================= CRIAR USUÁRIO (ADMIN) =================
+# ================= ADMIN CRIAR USUÁRIO =================
 @app.route("/admin_criar_usuario", methods=["POST"])
 def admin_criar_usuario():
     if session.get("tipo") != "ADMIN":
@@ -221,23 +226,19 @@ def admin_criar_usuario():
 
     conn = conectar_db()
     c = conn.cursor()
-
     try:
-        c.execute("""
-            INSERT INTO usuarios (nome, usuario, senha, tipo)
-            VALUES (?, ?, ?, ?)
-        """, (nome, usuario, senha_hash, tipo))
+        c.execute("INSERT INTO usuarios (nome, usuario, senha, tipo) VALUES (?,?,?,?)",
+                  (nome, usuario, senha_hash, tipo))
         conn.commit()
     except:
         conn.close()
-        return "❌ Usuário já existe"
+        return "Usuário já existe"
 
     conn.close()
     return "Usuário criado com senha 1234"
 
 
-
-# ================= RESETAR SENHA (ADMIN) =================
+# ================= ADMIN RESET SENHA =================
 @app.route("/admin_reset_senha/<int:id_usuario>")
 def admin_reset_senha(id_usuario):
     if session.get("tipo") != "ADMIN":
@@ -252,7 +253,6 @@ def admin_reset_senha(id_usuario):
     conn.close()
 
     return "Senha resetada para 1234"
-
 
 # ================= DASHBOARD =================
 @app.route("/dashboard")
@@ -1321,6 +1321,7 @@ def admin_deletar_usuario(id):
 
 # ================= START =================
 criar_banco()
+
 
 
 
