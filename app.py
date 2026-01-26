@@ -39,15 +39,15 @@ app.secret_key = secrets.token_hex(32)
 SENHA_CRM = "1234"   # depois vamos eliminar isso
 
 
-# ================= BANCO =================
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-BANCO = os.path.join(BASE_DIR, "banco.db")
-
+# ================= BANCO PERSISTENTE (RENDER DISK) =================
+DB_PATH = "/var/dados/banco.db"
 
 def conectar_db():
-    conn = sqlite3.connect(BANCO)
+    os.makedirs("/var/dados", exist_ok=True)
+    conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
     return conn
+
 
 
 def criar_banco():
@@ -1284,6 +1284,7 @@ def admin_deletar_usuario(id):
 
 # ================= START =================
 criar_banco()
+
 
 
 
