@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Gráficos</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body style="font-family:Arial;padding:20px">
+
+<h2>📈 Gráficos</h2>
+
+<canvas id="vendas"></canvas>
+<canvas id="comissao"></canvas>
+
+<script>
+const vendas = {
+labels: {{ vendas|map(attribute=0)|list|safe }},
+datasets: [{ label:'Vendas', data: {{ vendas|map(attribute=1)|list|safe }} }]
+};
+new Chart(document.getElementById('vendas'), {type:'bar', data:vendas});
+
+const comissao = {
+labels: {{ comissoes|map(attribute=0)|list|safe }},
+datasets: [{ label:'Comissão', data: {{ comissoes|map(attribute=1)|list|safe }} }]
+};
+new Chart(document.getElementById('comissao'), {type:'line', data:comissao});
+</script>
+
+<a href="/dashboard">Voltar</a>
+</body>
+</html>

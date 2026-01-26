@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Alertas de Recompra</title>
+    <style>
+        body { font-family: Arial; background:#eef2f5; padding:20px; }
+        table { width:100%; border-collapse: collapse; background:white; }
+        th, td { padding:10px; border-bottom:1px solid #ddd; }
+        th { background:#2c3e50; color:white; }
+        .ATRASADO { background:#f8d7da; font-weight:bold; }
+        .HOJE { background:#fff3cd; }
+        .PROXIMO { background:#d1ecf1; }
+
+        button { padding:6px 10px; cursor:pointer; }
+
+        .btn-voltar {
+            display:inline-block;
+            margin-bottom:15px;
+            font-weight:bold;
+            text-decoration:none;
+            background:#2c3e50;
+            color:white;
+            padding:6px 12px;
+            border-radius:4px;
+        }
+
+        .btn-descartar {
+            background:#c0392b;
+            color:white;
+            border:none;
+        }
+
+        /* BOTÕES NA MESMA LINHA */
+        .acoes-alerta {
+            display:flex;
+            gap:6px;
+            align-items:center;
+            flex-wrap:wrap;
+        }
+
+        .acoes-alerta form {
+            display:inline-flex;
+            align-items:center;
+            gap:4px;
+            margin:0;
+        }
+
+        input, select {
+            padding:4px;
+        }
+    </style>
+
+    <script>
+        document.addEventListener("keydown", function(e) {
+            if (e.key === "Escape") {
+                window.location.href = "/dashboard";
+            }
+        });
+    </script>
+</head>
+<body>
+
+<a href="/dashboard" class="btn-voltar">⬅ Voltar</a>
+
+<h2>🔔 Alertas de Recompra</h2>
+
+<table>
+    <tr>
+        <th>Cliente</th>
+        <th>Produto</th>
+        <th>Última</th>
+        <th>Frequência</th>
+        <th>Próxima</th>
+        <th>Status</th>
+        <th>Ação</th>
+    </tr>
+
+    {% for a in alertas %}
+    <tr class="{{ a.status }}">
+        <td>{{ a.cliente }}</td>
+        <td>{{ a.produto }}</td>
+        <td>{{ a.ultima }}</td>
+        <td>{{ a.frequencia }}</td>
+        <td>{{ a.proxima }}</td>
+        <td>{{ a.status }}</td>
+
+        <td>
+            <div class="acoes-alerta">
+
+                <!-- WhatsApp -->
+                <a href="https://wa.me/?text=Olá%20{{ a.cliente }}%2C%20estou%20entrando%20em%20contato%20sobre%20{{ a.produto }}" target="_blank">
+                    📲 WhatsApp
+                </a>
+
+                <!-- ADIAR -->
+                <form method="POST" action="/alertas/adiar">
+                    <input type="hidden" name="cliente" value="{{ a.cliente }}">
+                    <input type="hidden" name="produto" value="{{ a.produto }}">
+
+                    <select name="dias">
+                        <option value="7">7d</option>
+                        <option value="15">15d</option>
+                        <option value="30">30d</option>
+                    </select>
+
+                    <input type="text" name="observacao" placeholder="Obs." value="{{ a.observacao }}">
+
+                    <button>⏳</button>
+                </form>
+
+                <!-- DESCARTAR (REATIVA AUTOMATICAMENTE QUANDO COMPRAR DE NOVO) -->
+                <form method="POST" action="/alertas/descartar"
+                      onsubmit="return confirm('Descartar este alerta até o cliente comprar novamente?')">
+                    <input type="hidden" name="cliente" value="{{ a.cliente }}">
+                    <input type="hidden" name="produto" value="{{ a.produto }}">
+                    <button class="btn-descartar">🗑️</button>
+                </form>
+
+            </div>
+        </td>
+    </tr>
+    {% endfor %}
+</table>
+
+<br>
+<a href="/dashboard" class="btn-voltar">⬅ Voltar</a>
+
+</body>
+</html>

@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Alertas de Recompra</title>
+    <style>
+        body { font-family: Arial; background:#eef2f5; padding:20px; }
+        table { width:100%; border-collapse: collapse; background:white; }
+        th, td { padding:10px; border-bottom:1px solid #ddd; }
+        th { background:#2c3e50; color:white; }
+        .ATRASADO { background:#f8d7da; font-weight:bold; }
+        .HOJE { background:#fff3cd; }
+        .PROXIMO { background:#d1ecf1; }
+        button { padding:6px 10px; cursor:pointer; }
+    </style>
+</head>
+<body>
+
+<h2>🔔 Alertas de Recompra por Produto</h2>
+
+<table>
+    <tr>
+        <th>Cliente</th>
+        <th>Produto</th>
+        <th>Última Compra</th>
+        <th>Frequência (dias)</th>
+        <th>Próxima</th>
+        <th>Status</th>
+        <th>Ação</th>
+    </tr>
+
+    {% for a in alertas %}
+    <tr class="{{ a.status }}">
+        <td>{{ a.cliente }}</td>
+        <td>{{ a.produto }}</td>
+        <td>{{ a.ultima }}</td>
+        <td>{{ a.frequencia }}</td>
+        <td>{{ a.proxima }}</td>
+        <td>{{ a.status }}</td>
+        <td>
+            <a href="https://wa.me/?text=Olá%20{{ a.cliente }}%2C%20estou%20entrando%20em%20contato%20sobre%20{{ a.produto }}" target="_blank">📲 WhatsApp</a>
+            <form method="POST" action="/alertas/realizado" style="display:inline;">
+                <input type="hidden" name="cliente" value="{{ a.cliente }}">
+                <input type="hidden" name="produto" value="{{ a.produto }}">
+                <button>✔ Já contatado</button>
+            </form>
+        </td>
+    </tr>
+    {% endfor %}
+</table>
+
+<br>
+<a href="/dashboard">⬅ Voltar</a>
+
+</body>
+</html>

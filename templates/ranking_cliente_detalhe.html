@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Detalhe do Cliente</title>
+
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background: #eef2f5;
+            padding: 20px;
+        }
+
+        h2 { margin-top: 0; }
+
+        .card {
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+
+        .btn-voltar {
+            display: inline-block;
+            margin-bottom: 15px;
+            text-decoration: none;
+            background: #f4f6f8;
+            padding: 8px 12px;
+            border-radius: 6px;
+            color: #333;
+            font-weight: bold;
+            border: 1px solid #ccc;
+        }
+
+        .resumo {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 20px;
+            align-items: center;
+        }
+
+        .total {
+            font-size: 22px;
+            font-weight: bold;
+            color: #0a7d3b;
+            text-align: right;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            background: white;
+        }
+
+        th, td {
+            padding: 10px;
+            border: 1px solid #ddd;
+            text-align: left;
+        }
+
+        th {
+            background: #34495e;
+            color: white;
+        }
+
+        tr:hover { background: #f2f6f8; }
+
+        .btn {
+            padding: 6px 10px;
+            border-radius: 6px;
+            border: none;
+            cursor: pointer;
+            font-weight: bold;
+            margin-right: 6px;
+        }
+
+        .ativo { background:#3498db; color:white; }
+        .normal { background:#ddd; }
+    </style>
+</head>
+
+<body>
+
+<a href="/ranking_clientes" class="btn-voltar">⬅ Voltar para Ranking</a>
+
+<div class="card">
+    <div class="resumo">
+        <div>
+            <h2>👤 {{ cliente }}</h2>
+            <p><strong>Resumo de compras do cliente</strong></p>
+        </div>
+
+        <div class="total">
+            Total Comprado<br>
+            R$ {{ total | moeda_br }}
+        </div>
+    </div>
+</div>
+
+<div class="card">
+    <h3>📦 Produtos Comprados</h3>
+
+    <!-- FILTRO -->
+    <div style="margin-bottom:10px;">
+        <a href="?ordem=valor">
+            <button class="btn {% if ordem=='valor' %}ativo{% else %}normal{% endif %}">
+                💰 Ordenar por Valor
+            </button>
+        </a>
+
+        <a href="?ordem=quantidade">
+            <button class="btn {% if ordem=='quantidade' %}ativo{% else %}normal{% endif %}">
+                📦 Ordenar por Quantidade
+            </button>
+        </a>
+    </div>
+
+    {% if produtos %}
+    <table>
+        <tr>
+            <th>Produto</th>
+            <th>Quantidade Total</th>
+            <th>Valor Total (R$)</th>
+        </tr>
+        {% for p in produtos %}
+        <tr>
+            <td>{{ p.produto }}</td>
+            <td>{{ p.quantidade_total }}</td>
+            <td>R$ {{ p.valor_total | moeda_br }}</td>
+        </tr>
+        {% endfor %}
+    </table>
+    {% else %}
+        <p>Nenhum produto encontrado para este cliente.</p>
+    {% endif %}
+</div>
+
+</body>
+</html>

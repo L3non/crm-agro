@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Ranking de Produtos</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background: #eef2f5;
+            padding: 20px;
+        }
+
+        h1 {
+            margin-bottom: 5px;
+        }
+
+        .filtros {
+            margin-bottom: 15px;
+        }
+
+        .filtros a {
+            margin-right: 10px;
+            padding: 6px 12px;
+            border-radius: 6px;
+            text-decoration: none;
+            font-weight: bold;
+            background: #ddd;
+            color: #333;
+        }
+
+        .filtros a.ativo {
+            background: #2c3e50;
+            color: white;
+        }
+
+        table {
+            width: 100%;
+            background: white;
+            border-radius: 12px;
+            border-collapse: collapse;
+            overflow: hidden;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+
+        th, td {
+            padding: 12px;
+            border-bottom: 1px solid #eee;
+            text-align: left;
+        }
+
+        th {
+            background: #2c3e50;
+            color: white;
+        }
+
+        tr:hover {
+            background: #f2f6f8;
+        }
+
+        .voltar {
+            display: inline-block;
+            margin-bottom: 10px;
+            text-decoration: none;
+            color: #6a0dad;
+            font-weight: bold;
+        }
+
+        .qtd {
+            color: #1f6ed4;
+            font-weight: bold;
+        }
+
+        .valor {
+            color: #1e8449;
+            font-weight: bold;
+        }
+
+        .ticket {
+            color: #555;
+            font-weight: bold;
+        }
+
+        .produto-link {
+            text-decoration: none;
+            color: #2c3e50;
+            font-weight: bold;
+        }
+
+        .produto-link:hover {
+            text-decoration: underline;
+            color: #6a0dad;
+        }
+    </style>
+</head>
+<body>
+
+<h1>📦 Ranking de Produtos</h1>
+<a class="voltar" href="/dashboard">← Voltar</a>
+
+<div class="filtros">
+    <a href="/ranking_produtos?ordem=valor"
+       class="{{ 'ativo' if ordem == 'valor' else '' }}">💰 Faturamento</a>
+
+    <a href="/ranking_produtos?ordem=quantidade"
+       class="{{ 'ativo' if ordem == 'quantidade' else '' }}">📦 Quantidade</a>
+
+    <a href="/ranking_produtos?ordem=ticket"
+       class="{{ 'ativo' if ordem == 'ticket' else '' }}">🎯 Ticket Médio</a>
+</div>
+
+{% if dados %}
+<table>
+    <tr>
+        <th>#</th>
+        <th>Produto</th>
+        <th>Quantidade</th>
+        <th>Total Vendido (R$)</th>
+        <th>Ticket Médio (R$)</th>
+    </tr>
+
+    {% for p in dados %}
+    <tr>
+        <td>{{ loop.index }}</td>
+
+        <td>
+            <a class="produto-link" href="/ranking_produtos/{{ p['produto'] }}">
+                {{ p["produto"] }}
+            </a>
+        </td>
+
+        <td class="qtd">
+            {{ p["qtd_total"] | int }}
+        </td>
+
+        <td class="valor">
+            R$ {{ p["valor_total"] | moeda_br }}
+        </td>
+
+        <td class="ticket">
+            R$ {{ p["ticket_medio"] | moeda_br }}
+        </td>
+    </tr>
+    {% endfor %}
+</table>
+{% else %}
+<p>Nenhum produto encontrado.</p>
+{% endif %}
+
+</body>
+</html>

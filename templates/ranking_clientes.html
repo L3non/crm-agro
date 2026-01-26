@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Ranking de Clientes</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background: #eef2f5;
+            padding: 20px;
+        }
+
+        h1 {
+            margin-bottom: 10px;
+        }
+
+        table {
+            width: 100%;
+            background: white;
+            border-radius: 12px;
+            border-collapse: collapse;
+            overflow: hidden;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+
+        th, td {
+            padding: 12px;
+            border-bottom: 1px solid #eee;
+            text-align: left;
+        }
+
+        th {
+            background: #34495e;
+            color: white;
+        }
+
+        tr:hover {
+            background: #f2f6f8;
+        }
+
+        .voltar {
+            display: inline-block;
+            margin-bottom: 15px;
+            text-decoration: none;
+            color: #6a0dad;
+            font-weight: bold;
+        }
+
+        .cliente-link {
+            text-decoration: none;
+            font-weight: bold;
+            color: #34495e;
+        }
+
+        .cliente-link:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+
+<h1>🏆 Ranking de Clientes</h1>
+<a class="voltar" href="/dashboard">← Voltar</a>
+
+{% if dados %}
+<table>
+    <tr>
+        <th>#</th>
+        <th>Cliente</th>
+        <th>Total Comprado</th>
+    </tr>
+    {% for c in dados %}
+    <tr>
+        <td>{{ loop.index }}</td>
+        <td>
+            <a class="cliente-link" href="/ranking_clientes/{{ c['cliente'] }}">
+                {{ c["cliente"] }}
+            </a>
+        </td>
+        <td>R$ {{ c["total"] | moeda_br }}</td>
+    </tr>
+    {% endfor %}
+</table>
+{% else %}
+<p>Nenhum dado encontrado.</p>
+{% endif %}
+
+</body>
+</html>

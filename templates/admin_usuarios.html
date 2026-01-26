@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Admin - Usuários</title>
+    <style>
+        body { font-family: Arial; padding: 20px; background:#eef2f5; }
+        .card { background:white; padding:20px; border-radius:10px; box-shadow:0 3px 8px rgba(0,0,0,.1); margin-bottom:20px;}
+        input, select, button { padding:8px; width:100%; margin:5px 0; }
+        table { width:100%; border-collapse: collapse; background:white; }
+        th, td { border:1px solid #ccc; padding:8px; }
+        th { background:#f4f6f8; }
+
+        .btn-reset { background:#f39c12; color:white; border:none; padding:6px; cursor:pointer; }
+        .btn-delete { background:#e74c3c; color:white; border:none; padding:6px; cursor:pointer; }
+    </style>
+</head>
+<body>
+
+<a href="/dashboard">⬅ Voltar</a>
+
+<div class="card">
+<h2>➕ Cadastrar Usuário</h2>
+<form method="post">
+    <input name="nome" placeholder="Nome completo" required>
+    <input name="usuario" placeholder="Usuário login" required>
+    <input name="senha" placeholder="Senha" required>
+
+    <select name="tipo">
+        <option value="VENDEDOR">Vendedor</option>
+        <option value="ADMIN">Administrador</option>
+    </select>
+
+    <button type="submit">Salvar Usuário</button>
+</form>
+</div>
+
+<div class="card">
+<h2>📋 Usuários Cadastrados</h2>
+<table>
+<tr>
+    <th>ID</th>
+    <th>Nome</th>
+    <th>Usuário</th>
+    <th>Tipo</th>
+    <th>Ações</th>
+</tr>
+
+{% for u in usuarios %}
+<tr>
+    <td>{{ u.id }}</td>
+    <td>{{ u.nome }}</td>
+    <td>{{ u.usuario }}</td>
+    <td>{{ u.tipo }}</td>
+    <td>
+        <a href="/admin_reset_senha/{{ u.id }}">
+            <button class="btn-reset">🔑 Reset Senha</button>
+        </a>
+
+        <a href="/admin_deletar_usuario/{{ u.id }}" onclick="return confirm('Excluir usuário?')">
+            <button class="btn-delete">🗑 Excluir</button>
+        </a>
+    </td>
+</tr>
+{% endfor %}
+
+</table>
+</div>
+
+</body>
+</html>

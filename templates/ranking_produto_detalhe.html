@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Produto - {{ produto }}</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background: #eef2f5;
+            padding: 20px;
+        }
+
+        h1 { margin-bottom: 10px; }
+
+        table {
+            width: 100%;
+            background: white;
+            border-radius: 12px;
+            border-collapse: collapse;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+
+        th, td {
+            padding: 12px;
+            border-bottom: 1px solid #eee;
+            text-align: left;
+        }
+
+        th {
+            background: #2c3e50;
+            color: white;
+        }
+
+        .voltar {
+            display: inline-block;
+            margin-bottom: 15px;
+            text-decoration: none;
+            color: #6a0dad;
+            font-weight: bold;
+        }
+
+        .qtd { color: #1f6ed4; font-weight: bold; }
+        .valor { color: #1e8449; font-weight: bold; }
+
+        .btn {
+            padding: 8px 12px;
+            border-radius: 6px;
+            border: none;
+            cursor: pointer;
+            font-weight: bold;
+            margin-right: 8px;
+        }
+
+        .btn-ativo {
+            background: #3498db;
+            color: white;
+        }
+
+        .btn-normal {
+            background: #ddd;
+        }
+    </style>
+</head>
+<body>
+
+<h1>📦 Produto: {{ produto }}</h1>
+<a class="voltar" href="/ranking_produtos">← Voltar ao ranking</a>
+
+<!-- BOTÕES DE FILTRO -->
+<div style="margin-bottom:15px;">
+    <a href="/ranking_produtos/{{ produto }}?ordem=valor">
+        <button class="btn {% if ordem == 'valor' %}btn-ativo{% else %}btn-normal{% endif %}">
+            💰 Ordenar por Valor
+        </button>
+    </a>
+
+    <a href="/ranking_produtos/{{ produto }}?ordem=quantidade">
+        <button class="btn {% if ordem == 'quantidade' %}btn-ativo{% else %}btn-normal{% endif %}">
+            📦 Ordenar por Quantidade
+        </button>
+    </a>
+</div>
+
+{% if dados %}
+<table>
+    <tr>
+        <th>#</th>
+        <th>Cliente</th>
+        <th>Quantidade</th>
+        <th>Total Comprado (R$)</th>
+    </tr>
+
+    {% for d in dados %}
+    <tr>
+        <td>{{ loop.index }}</td>
+        <td>{{ d["cliente"] }}</td>
+        <td class="qtd">{{ d["qtd_total"] }}</td>
+        <td class="valor">
+            R$ {{ d["valor_total"]|default(0)|float|round(2) }}
+        </td>
+    </tr>
+    {% endfor %}
+</table>
+{% else %}
+<p>Nenhuma venda encontrada para este produto.</p>
+{% endif %}
+
+</body>
+</html>

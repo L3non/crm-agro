@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Dashboard - CRM Agro</title>
+    <style>
+        body {
+            font-family: Arial;
+            background:#eef2f5;
+            padding:20px;
+        }
+
+        h1 { margin-bottom:20px; }
+
+        .grid {
+            display:grid;
+            grid-template-columns: repeat(auto-fit, minmax(240px,1fr));
+            gap:20px;
+            margin-bottom:30px;
+        }
+
+        .card {
+            background:white;
+            padding:20px;
+            border-radius:14px;
+            box-shadow:0 4px 12px rgba(0,0,0,0.1);
+        }
+
+        .card span {
+            color:#666;
+            font-size:14px;
+        }
+
+        .card h2 {
+            margin:6px 0 0;
+            font-size:30px;
+        }
+
+        .verde   { border-left:6px solid #2ecc71; }
+        .azul    { border-left:6px solid #3498db; }
+        .laranja { border-left:6px solid #e67e22; }
+        .vermelho{ border-left:6px solid #e74c3c; }
+
+        .box {
+            background:white;
+            padding:20px;
+            border-radius:14px;
+            box-shadow:0 4px 12px rgba(0,0,0,0.1);
+            margin-bottom:30px;
+        }
+
+        .linha {
+            display:flex;
+            justify-content:space-between;
+            padding:10px 0;
+            border-bottom:1px solid #eee;
+            cursor:pointer;
+        }
+
+        .linha:hover {
+            background:#f4f6f8;
+        }
+
+        .menu {
+            display:grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px,1fr));
+            gap:14px;
+        }
+
+        .menu a {
+            background:white;
+            padding:14px;
+            border-radius:12px;
+            text-decoration:none;
+            font-weight:bold;
+            color:#333;
+            box-shadow:0 2px 6px rgba(0,0,0,0.1);
+        }
+
+        .menu a:hover {
+            background:#3498db;
+            color:white;
+        }
+
+        a.link-linha {
+            text-decoration:none;
+            color:inherit;
+        }
+
+        .top-link {
+            text-decoration:none;
+            color:inherit;
+            display:block;
+        }
+
+        .top-link:hover {
+            background:#f4f6f8;
+        }
+
+        .admin-btn {
+            background:#000 !important;
+            color:white !important;
+        }
+    </style>
+</head>
+<body>
+
+<h1>📊 Dashboard</h1>
+
+<!-- CARDS PRINCIPAIS -->
+<div class="grid">
+    <div class="card verde">
+        <span>Total Vendido</span>
+        <h2>R$ {{ total_vendas | moeda_br }}</h2>
+    </div>
+
+    <div class="card azul">
+        <span>Vendas Mês Atual</span>
+        <h2>R$ {{ vendas_mes_atual | moeda_br }}</h2>
+    </div>
+
+    <div class="card laranja">
+        <span>Vendas Mês Anterior</span>
+        <h2>R$ {{ vendas_mes_anterior | moeda_br }}</h2>
+    </div>
+
+    <div class="card vermelho">
+        <span>Comissão do Mês</span>
+        <h2>R$ {{ total_comissao | moeda_br }}</h2>
+    </div>
+</div>
+
+<!-- ALERTAS -->
+<div class="box">
+    <h3>🔔 Alertas de Recompra</h3>
+
+    <a class="link-linha" href="/alertas?status=ATRASADO">
+        <div class="linha">
+            🔴 Atrasados <strong>{{ alertas_atrasado }}</strong>
+        </div>
+    </a>
+
+    <a class="link-linha" href="/alertas?status=HOJE">
+        <div class="linha">
+            🟡 Hoje <strong>{{ alertas_hoje }}</strong>
+        </div>
+    </a>
+
+    <a class="link-linha" href="/alertas?status=PROXIMO">
+        <div class="linha">
+            🔵 Próximos <strong>{{ alertas_proximo }}</strong>
+        </div>
+    </a>
+</div>
+
+<!-- CLIENTES EM RISCO -->
+<div class="box">
+    <h3>⚠️ Clientes em Risco</h3>
+
+    <a href="/contatos?risco=30" class="link-linha">
+        <div class="linha">
+            30 dias <strong>{{ risco_30 }}</strong>
+        </div>
+    </a>
+
+    <a href="/contatos?risco=60" class="link-linha">
+        <div class="linha">
+            60 dias <strong>{{ risco_60 }}</strong>
+        </div>
+    </a>
+
+    <a href="/contatos?risco=90" class="link-linha">
+        <div class="linha">
+            90 dias <strong>{{ risco_90 }}</strong>
+        </div>
+    </a>
+</div>
+
+<!-- TOP CLIENTES -->
+<div class="box">
+    <h3>🏆 Top Clientes</h3>
+
+    {% for c in top_clientes %}
+    <a class="top-link" href="/ranking_clientes/{{ c.cliente }}">
+        <div class="linha">
+            <div>{{ loop.index }}º - {{ c.cliente }}</div>
+            <div>R$ {{ c.total | moeda_br }}</div>
+        </div>
+    </a>
+    {% endfor %}
+</div>
+
+<!-- MENU PRINCIPAL -->
+<div class="menu">
+    <a href="/vendas">➕ Registrar Venda</a>
+    <a href="/clientes">👥 Clientes</a>
+    <a href="/alertas">🔔 Alertas</a>
+    <a href="/financeiro">💰 Financeiro</a>
+    <a href="/ranking_clientes">🏆 Ranking Clientes</a>
+    <a href="/ranking_produtos">📦 Ranking Produtos</a>
+
+    <!-- BOTÃO ADMIN (APARECE SÓ PARA ADMIN) -->
+    {% if session["id_usuario"] == 1 %}
+    <a href="/admin_usuarios" class="admin-btn">👤 Admin Usuários</a>
+    {% endif %}
+
+    <!-- 🔑 BOTÃO TROCAR SENHA (NOVO) -->
+    <a href="/trocar_senha">🔑 Trocar Senha</a>
+
+    <a href="/logout">🚪 Sair</a>
+</div>
+
+</body>
+</html>

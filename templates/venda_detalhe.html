@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Detalhe da Venda</title>
+    <style>
+        body {
+            font-family: Arial;
+            background: #eef2f5;
+            padding: 20px;
+        }
+
+        .card {
+            background: white;
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            box-shadow: 0 3px 8px rgba(0,0,0,0.1);
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            background: white;
+        }
+
+        th, td {
+            padding: 8px;
+            border: 1px solid #ccc;
+            text-align: left;
+        }
+
+        th {
+            background: #f4f6f8;
+        }
+
+        .acoes a {
+            margin-right: 10px;
+            font-weight: bold;
+            text-decoration: none;
+        }
+    </style>
+</head>
+
+<body>
+
+<h2>🔍 Detalhe da Venda</h2>
+
+<div class="card">
+    <p><strong>Cliente:</strong> {{ venda.cliente }}</p>
+
+    <p><strong>Data:</strong>
+        {{ venda.data.split('-')[2] }}-{{ venda.data.split('-')[1] }}-{{ venda.data.split('-')[0] }}
+    </p>
+
+    <p><strong>Valor Total:</strong> R$ {{ venda.valor_total | moeda_br }}</p>
+    <p><strong>Comissão:</strong> R$ {{ venda.comissao_total | moeda_br }}</p>
+    <p><strong>Parcelas:</strong> {{ venda.parcelas }}</p>
+    <p><strong>Primeiro mês:</strong> {{ venda.primeiro_mes }}</p>
+
+    <div class="acoes">
+        <a href="/venda/{{ venda.id }}/editar?inicio={{ request.args.get('inicio','') }}&fim={{ request.args.get('fim','') }}">
+            ✏️ Editar Venda
+        </a>
+
+        <a href="/venda/{{ venda.id }}/excluir?inicio={{ request.args.get('inicio','') }}&fim={{ request.args.get('fim','') }}"
+           onclick="return confirm('Tem certeza que deseja excluir esta venda?')">
+           ❌ Excluir Venda
+        </a>
+    </div>
+</div>
+
+<h3>🧾 Produtos da Venda</h3>
+
+{% if itens %}
+<table>
+    <tr>
+        <th>Produto</th>
+        <th>Quantidade</th>
+        <th>Valor Unitário</th>
+        <th>Total</th>
+    </tr>
+    {% for i in itens %}
+    <tr>
+        <td>{{ i.produto }}</td>
+        <td>{{ i.quantidade }}</td>
+        <td>R$ {{ i.valor_unitario | moeda_br }}</td>
+        <td>R$ {{ i.total_item | moeda_br }}</td>
+    </tr>
+    {% endfor %}
+</table>
+{% else %}
+<p>Nenhum produto encontrado para esta venda.</p>
+{% endif %}
+
+<br>
+
+<a href="/vendas?inicio={{ request.args.get('inicio','') }}&fim={{ request.args.get('fim','') }}">
+    ⬅ Voltar para Vendas
+</a>
+
+</body>
+</html>

@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <title>Clientes</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background: #f4f6f8;
+            padding: 20px;
+        }
+        h2 {
+            margin-bottom: 10px;
+        }
+        input, button {
+            padding: 8px;
+            margin: 4px;
+        }
+        table {
+            width: 100%;
+            background: #fff;
+            border-collapse: collapse;
+            margin-top: 15px;
+        }
+        th, td {
+            padding: 10px;
+            border-bottom: 1px solid #ddd;
+            text-align: left;
+        }
+        th {
+            background: #3498db;
+            color: white;
+        }
+        .btn {
+            cursor: pointer;
+        }
+        .linha-form {
+            background: #fff;
+            padding: 10px;
+            border-radius: 6px;
+        }
+    </style>
+</head>
+<body>
+
+<h2>👥 Clientes</h2>
+
+<!-- BUSCA -->
+<form method="get">
+    <input type="text" name="busca" placeholder="Pesquisar cliente..." value="{{ busca }}">
+    <button class="btn">Pesquisar</button>
+</form>
+
+<!-- FORMULÁRIO -->
+<form method="post" class="linha-form">
+    <input type="hidden" name="id_cliente" id="id_cliente">
+
+    <input type="text" name="nome" id="nome" placeholder="Nome" required>
+    <input type="text" name="telefone" id="telefone" placeholder="Telefone">
+    <input type="text" name="fazenda" id="fazenda" placeholder="Fazenda">
+    <input type="text" name="cpf" id="cpf" placeholder="CPF">
+    <input type="text" name="observacoes" id="observacoes" placeholder="Observações">
+
+    <button class="btn">💾 Salvar</button>
+</form>
+
+<table>
+    <tr>
+        <th>Nome</th>
+        <th>Telefone</th>
+        <th>Fazenda</th>
+        <th>CPF</th>
+        <th>Observações</th>
+        <th>Ação</th>
+    </tr>
+
+    {% for c in clientes %}
+    <tr>
+        <td>{{ c[1] }}</td>
+        <td>{{ c[2] }}</td>
+        <td>{{ c[3] }}</td>
+        <td>{{ c[4] }}</td>
+        <td>{{ c[5] }}</td>
+        <td>
+            <button class="btn"
+                onclick="editar('{{ c[0] }}','{{ c[1] }}','{{ c[2] }}','{{ c[3] }}','{{ c[4] }}','{{ c[5] }}')">
+                ✏️ Editar
+            </button>
+        </td>
+    </tr>
+    {% endfor %}
+</table>
+
+<br>
+<a href="/dashboard">⬅ Voltar</a>
+
+<script>
+function editar(id, nome, telefone, fazenda, cpf, obs) {
+    document.getElementById("id_cliente").value = id;
+    document.getElementById("nome").value = nome;
+    document.getElementById("telefone").value = telefone;
+    document.getElementById("fazenda").value = fazenda;
+    document.getElementById("cpf").value = cpf;
+    document.getElementById("observacoes").value = obs;
+}
+</script>
+
+</body>
+</html>

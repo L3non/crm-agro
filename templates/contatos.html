@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Clientes em Risco</title>
+    <style>
+        body {
+            font-family: Arial;
+            background: #eef2f5;
+            padding: 20px;
+        }
+
+        h2 {
+            margin-bottom: 10px;
+        }
+
+        .subtitulo {
+            color: #555;
+            margin-bottom: 20px;
+            font-size: 14px;
+        }
+
+        .card {
+            background: white;
+            padding: 15px;
+            margin-bottom: 15px;
+            border-radius: 10px;
+            box-shadow: 0 3px 8px rgba(0,0,0,0.1);
+        }
+
+        .cliente {
+            font-size: 18px;
+            font-weight: bold;
+        }
+
+        .data {
+            color: #555;
+            margin-top: 5px;
+            font-size: 14px;
+        }
+
+        .dias {
+            margin-top: 4px;
+            font-weight: bold;
+            color: #c0392b;
+        }
+
+        .produtos {
+            margin-top: 6px;
+            font-size: 13px;
+            color: #555;
+        }
+
+        .btn-voltar {
+            display: inline-block;
+            margin-bottom: 20px;
+            padding: 8px 12px;
+            background: #2c3e50;
+            color: white;
+            text-decoration: none;
+            border-radius: 6px;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+
+<a href="/dashboard" class="btn-voltar">⬅ Voltar</a>
+
+<h2>
+    📞
+    {% if risco == "30" %}
+        Clientes sem compra entre 30 e 59 dias
+    {% elif risco == "60" %}
+        Clientes sem compra entre 60 e 89 dias
+    {% elif risco == "90" %}
+        Clientes sem compra há mais de 90 dias
+    {% else %}
+        Clientes em risco
+    {% endif %}
+</h2>
+
+<div class="subtitulo">
+    Total encontrados: <strong>{{ contatos|length }}</strong>
+</div>
+
+{% if contatos %}
+    {% for c in contatos %}
+        <div class="card">
+            <div class="cliente">{{ c.cliente }}</div>
+
+            <div class="data">
+                Última compra: {{ c.data_ultima_compra }}
+            </div>
+
+            <div class="dias">
+                {{ c.dias_sem_compra }} dias sem comprar
+            </div>
+
+            {% if c.produtos_ultima_compra %}
+                <div class="produtos">
+                    <strong>Produtos da última compra:</strong>
+                    {{ c.produtos_ultima_compra | join(", ") }}
+                </div>
+            {% endif %}
+        </div>
+    {% endfor %}
+{% else %}
+    <p>Nenhum cliente encontrado para esse período.</p>
+{% endif %}
+
+<br>
+
+<a href="/dashboard" class="btn-voltar">⬅ Voltar</a>
+
+</body>
+</html>
