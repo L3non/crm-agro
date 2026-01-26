@@ -3,11 +3,9 @@ from flask import Flask, render_template, request, redirect, session, send_file
 import sqlite3
 import os
 from datetime import datetime, timedelta
-import secrets   # 🔒 ADICIONADO
+import secrets
 from werkzeug.security import generate_password_hash, check_password_hash
 import re
-
-
 
 def calcular_dias_sem_compra(data_ultima_compra):
     if not data_ultima_compra:
@@ -19,9 +17,7 @@ def calcular_dias_sem_compra(data_ultima_compra):
     except:
         return None
 
-
 app = Flask(__name__)
-
 
 def moeda_br(valor):
     try:
@@ -29,17 +25,16 @@ def moeda_br(valor):
     except:
         return "0,00"
 
-
 app.jinja_env.filters["moeda_br"] = moeda_br
 
-# 🔒 SECRET KEY PROFISSIONAL (antes era fixa)
+# SECRET KEY
 app.secret_key = secrets.token_hex(32)
 
-# ⚠️ NÃO REMOVI, só marquei para futura segurança
-SENHA_CRM = "1234"   # depois vamos eliminar isso
+# (mantido, não usado no login)
+SENHA_CRM = "1234"
 
 
-# ================= BANCO PERSISTENTE (RENDER DISK) =================
+# ================= BANCO PERSISTENTE =================
 DB_PATH = "/var/dados/banco.db"
 
 def conectar_db():
@@ -49,12 +44,10 @@ def conectar_db():
     return conn
 
 
-
 def criar_banco():
     conn = conectar_db()
     c = conn.cursor()
 
-    # USUÁRIOS
     c.execute("""
         CREATE TABLE IF NOT EXISTS usuarios (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -65,7 +58,6 @@ def criar_banco():
         )
     """)
 
-    # CLIENTES
     c.execute("""
         CREATE TABLE IF NOT EXISTS clientes (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -78,7 +70,6 @@ def criar_banco():
         )
     """)
 
-    # VENDAS
     c.execute("""
         CREATE TABLE IF NOT EXISTS vendas (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -92,7 +83,6 @@ def criar_banco():
         )
     """)
 
-    # ITENS
     c.execute("""
         CREATE TABLE IF NOT EXISTS itens_venda (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -104,7 +94,6 @@ def criar_banco():
         )
     """)
 
-    # COMISSÕES
     c.execute("""
         CREATE TABLE IF NOT EXISTS comissoes (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -116,7 +105,6 @@ def criar_banco():
         )
     """)
 
-    # ALERTAS
     c.execute("""
         CREATE TABLE IF NOT EXISTS alertas_controle (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -132,10 +120,8 @@ def criar_banco():
     conn.close()
 
 
-from werkzeug.security import generate_password_hash, check_password_hash
-import re
 
-# ================= LOGIN =================
+# ================= LOGIN (BLINDADO) =================
 @app.route("/", methods=["GET","POST"])
 def login():
     if request.method == "POST":
@@ -144,21 +130,30 @@ def login():
 
         conn = conectar_db()
         c = conn.cursor()
-
-        # buscar usuário
         c.execute("SELECT * FROM usuarios WHERE usuario=?", (usuario,))
         user = c.fetchone()
         conn.close()
 
-        # verificar senha hash
-        if user and check_password_hash(user["senha"], senha):
-            session["logado"] = True
-            session["id_usuario"] = user["id"]
-            session["nome_usuario"] = user["nome"]
-            session["tipo"] = user["tipo"]
-            return redirect("/dashboard")
-        else:
-            return "❌ Usuário ou senha inválidos"
+        if user:
+            senha_banco = user["senha"] or ""
+
+            # aceita senha antiga SEM hash (evita travar)
+            if not senha_banco.startswith("scrypt") and not senha_banco.startswith("pbkdf2"):
+                if senha == senha_banco:
+                    session["logado"] = True
+                    session["id_usuario"] = user["id"]
+                    session["nome_usuario"] = user["nome"]
+                    session["tipo"] = user["tipo"]
+                    return redirect("/dashboard")
+            else:
+                if check_password_hash(senha_banco, senha):
+                    session["logado"] = True
+                    session["id_usuario"] = user["id"]
+                    session["nome_usuario"] = user["nome"]
+                    session["tipo"] = user["tipo"]
+                    return redirect("/dashboard")
+
+        return "❌ Usuário ou senha inválidos"
 
     return render_template("login.html")
 
@@ -170,7 +165,7 @@ def logout():
     return redirect("/")
 
 
-# ================= TROCAR SENHA (USUÁRIO LOGADO) =================
+# ================= TROCAR SENHA =================
 @app.route("/trocar_senha", methods=["GET", "POST"])
 def trocar_senha():
     if not session.get("logado"):
@@ -185,17 +180,13 @@ def trocar_senha():
 
         conn = conectar_db()
         c = conn.cursor()
-
-        # pegar senha atual no banco
         c.execute("SELECT senha FROM usuarios WHERE id=?", (id_usuario,))
         senha_banco = c.fetchone()["senha"]
 
-        # validar senha atual
         if not check_password_hash(senha_banco, senha_atual):
             conn.close()
             return "❌ Senha atual incorreta"
 
-        # validar força da senha
         if len(nova_senha) < 8 or not re.search(r"[0-9]", nova_senha) or not re.search(r"[!@#$%^&*]", nova_senha):
             conn.close()
             return "❌ Senha fraca (mín 8 caracteres, número e símbolo)"
@@ -204,18 +195,18 @@ def trocar_senha():
             conn.close()
             return "❌ Senhas não conferem"
 
-        # salvar nova senha com hash
         nova_hash = generate_password_hash(nova_senha)
         c.execute("UPDATE usuarios SET senha=? WHERE id=?", (nova_hash, id_usuario))
         conn.commit()
         conn.close()
 
-        # logout automático
         session.clear()
         return redirect("/")
 
     return render_template("trocar_senha.html")
-    
+
+
+
 # ================= CRIAR USUÁRIO (ADMIN) =================
 @app.route("/admin_criar_usuario", methods=["POST"])
 def admin_criar_usuario():
@@ -224,23 +215,29 @@ def admin_criar_usuario():
 
     nome = request.form["nome"]
     usuario = request.form["usuario"]
-    tipo = request.form["tipo"]  # ADMIN ou VENDEDOR
+    tipo = request.form["tipo"]
 
-    # senha padrão 1234 COM HASH
     senha_hash = generate_password_hash("1234")
 
     conn = conectar_db()
     c = conn.cursor()
-    c.execute("""
-        INSERT INTO usuarios (nome, usuario, senha, tipo)
-        VALUES (?, ?, ?, ?)
-    """, (nome, usuario, senha_hash, tipo))
-    conn.commit()
-    conn.close()
 
+    try:
+        c.execute("""
+            INSERT INTO usuarios (nome, usuario, senha, tipo)
+            VALUES (?, ?, ?, ?)
+        """, (nome, usuario, senha_hash, tipo))
+        conn.commit()
+    except:
+        conn.close()
+        return "❌ Usuário já existe"
+
+    conn.close()
     return "Usuário criado com senha 1234"
 
-# ================= RESETAR SENHA USUÁRIO =================
+
+
+# ================= RESETAR SENHA (ADMIN) =================
 @app.route("/admin_reset_senha/<int:id_usuario>")
 def admin_reset_senha(id_usuario):
     if session.get("tipo") != "ADMIN":
@@ -1324,6 +1321,7 @@ def admin_deletar_usuario(id):
 
 # ================= START =================
 criar_banco()
+
 
 
 
