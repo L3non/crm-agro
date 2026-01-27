@@ -135,19 +135,19 @@
 
     <a class="link-linha" href="/alertas?status=ATRASADO">
         <div class="linha">
-            🔴 Atrasados <strong>{{ alertas_atrasado }}</strong>
+            🔴 Atrasados <strong>{{ qtd_atrasados }}</strong>
         </div>
     </a>
 
     <a class="link-linha" href="/alertas?status=HOJE">
         <div class="linha">
-            🟡 Hoje <strong>{{ alertas_hoje }}</strong>
+            🟡 Hoje <strong>{{ qtd_hoje }}</strong>
         </div>
     </a>
 
     <a class="link-linha" href="/alertas?status=PROXIMO">
         <div class="linha">
-            🔵 Próximos <strong>{{ alertas_proximo }}</strong>
+            🔵 Próximos <strong>{{ qtd_proximos }}</strong>
         </div>
     </a>
 </div>
@@ -203,7 +203,7 @@
     <a href="/admin_usuarios" class="admin-btn">👤 Admin Usuários</a>
     {% endif %}
 
-    <!-- 🔑 BOTÃO TROCAR SENHA (NOVO) -->
+    <!-- 🔑 BOTÃO TROCAR SENHA -->
     <a href="/trocar_senha">🔑 Trocar Senha</a>
 
     <a href="/logout">🚪 Sair</a>
@@ -211,3 +211,4 @@
 
 </body>
 </html>
+
