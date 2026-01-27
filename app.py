@@ -1284,24 +1284,6 @@ def admin_usuarios():
 
     return render_template("admin_usuarios.html", usuarios=usuarios)
 
-# RESETAR SENHA
-@app.route("/admin_reset_senha/<int:id>")
-def admin_reset_senha(id):
-    if not session.get("logado"):
-        return redirect("/")
-
-    if session.get("id_usuario") != 1:
-        return "Acesso negado"
-
-    conn = conectar_db()
-    c = conn.cursor()
-    c.execute("UPDATE usuarios SET senha='1234' WHERE id=?", (id,))
-    conn.commit()
-    conn.close()
-
-    return redirect("/admin_usuarios")
-
-
 # DELETAR USUÁRIO
 @app.route("/admin_deletar_usuario/<int:id>")
 def admin_deletar_usuario(id):
@@ -1322,6 +1304,7 @@ def admin_deletar_usuario(id):
 
 # ================= START =================
 criar_banco()
+
 
 
 
