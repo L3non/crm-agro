@@ -166,40 +166,40 @@ def logout():
     return redirect("/")
 
 # ================= TROCAR SENHA =================
-@app.route("/trocar_senha", methods=["POST"])
+# ================= TROCAR SENHA =================
+@app.route("/trocar_senha", methods=["GET", "POST"])
 def trocar_senha():
     if not session.get("logado"):
         return redirect("/")
 
-    senha_atual = request.form["senha_atual"]
-    nova = request.form["nova_senha"]
-    confirmar = request.form["confirmar_senha"]
+    if request.method == "POST":
+        senha_atual = request.form["senha_atual"]
+        nova = request.form["nova_senha"]
+        confirmar = request.form["confirmar_senha"]
 
-    if nova != confirmar:
-        return "Senhas não conferem"
+        if nova != confirmar:
+            return "Senhas não conferem"
 
-    id_usuario = session["id_usuario"]
+        id_usuario = session["id_usuario"]
 
-    conn = conectar_db()
-    c = conn.cursor()
-    c.execute("SELECT senha FROM usuarios WHERE id=?", (id_usuario,))
-    senha_banco = c.fetchone()["senha"]
+        conn = conectar_db()
+        c = conn.cursor()
+        c.execute("SELECT senha FROM usuarios WHERE id=?", (id_usuario,))
+        senha_banco = c.fetchone()["senha"]
 
-    if senha_atual != senha_banco:
-        return "Senha atual errada"
+        if senha_atual != senha_banco:
+            conn.close()
+            return "Senha atual errada"
 
-    c.execute("UPDATE usuarios SET senha=? WHERE id=?", (nova, id_usuario))
-    conn.commit()
-    conn.close()
+        c.execute("UPDATE usuarios SET senha=? WHERE id=?", (nova, id_usuario))
+        conn.commit()
+        conn.close()
 
-    return "Senha alterada"
-
-        # 🔒 LOGOUT AUTOMÁTICO
+        # logout depois de trocar senha
         session.clear()
         return redirect("/")
 
     return render_template("trocar_senha.html")
-
 
 # ================= ADMIN CRIAR USUÁRIO =================
 @app.route("/admin_criar_usuario", methods=["POST"])
@@ -1293,6 +1293,7 @@ def admin_deletar_usuario(id):
 
 # ================= START =================
 criar_banco()
+
 
 
 
