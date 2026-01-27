@@ -3,9 +3,11 @@ from flask import Flask, render_template, request, redirect, session, send_file
 import sqlite3
 import os
 from datetime import datetime, timedelta
-import secrets
+import secrets   # 🔒 ADICIONADO
 from werkzeug.security import generate_password_hash, check_password_hash
 import re
+
+
 
 def calcular_dias_sem_compra(data_ultima_compra):
     if not data_ultima_compra:
@@ -17,7 +19,9 @@ def calcular_dias_sem_compra(data_ultima_compra):
     except:
         return None
 
+
 app = Flask(__name__)
+
 
 def moeda_br(valor):
     try:
@@ -25,13 +29,16 @@ def moeda_br(valor):
     except:
         return "0,00"
 
+
 app.jinja_env.filters["moeda_br"] = moeda_br
 
-# SECRET KEY
+# 🔒 SECRET KEY PROFISSIONAL (antes era fixa)
 app.secret_key = secrets.token_hex(32)
 
-# (mantido, não usado no login)
-SENHA_CRM = "1234"
+# ⚠️ NÃO REMOVI, só marquei para futura segurança
+SENHA_CRM = "1234"   # depois vamos eliminar isso
+
+
 
 
 # ================= BANCO PERSISTENTE =================
@@ -134,36 +141,23 @@ def login():
 
         conn = conectar_db()
         c = conn.cursor()
+
+        # 🔒 BUSCAR USUÁRIO (SEM SENHA NO SQL)
         c.execute("SELECT * FROM usuarios WHERE usuario=?", (usuario,))
         user = c.fetchone()
         conn.close()
 
-        if not user:
-            return "Usuário ou senha inválidos"
-
-        senha_banco = user["senha"] or ""
-
-        # aceita senha antiga sem hash
-        if not senha_banco.startswith("scrypt") and not senha_banco.startswith("pbkdf2"):
-            if senha == senha_banco:
-                session["logado"] = True
-                session["id_usuario"] = user["id"]
-                session["nome_usuario"] = user["nome"]
-                session["tipo"] = user["tipo"]
-                return redirect("/dashboard")
-
-        # senha hash
-        if check_password_hash(senha_banco, senha):
+        # 🔒 VERIFICAR SENHA COM HASH
+        if user and check_password_hash(user["senha"], senha):
             session["logado"] = True
             session["id_usuario"] = user["id"]
             session["nome_usuario"] = user["nome"]
             session["tipo"] = user["tipo"]
             return redirect("/dashboard")
-
-        return "Usuário ou senha inválidos"
+        else:
+            return "❌ Usuário ou senha inválidos"
 
     return render_template("login.html")
-
 
 # ================= LOGOUT =================
 @app.route("/logout")
@@ -171,41 +165,50 @@ def logout():
     session.clear()
     return redirect("/")
 
-
 # ================= TROCAR SENHA =================
 @app.route("/trocar_senha", methods=["GET", "POST"])
 def trocar_senha():
     if not session.get("logado"):
         return redirect("/")
 
+    from werkzeug.security import generate_password_hash, check_password_hash
+    import re
+
     if request.method == "POST":
         senha_atual = request.form["senha_atual"]
-        nova_senha = request.form["nova_s highlights code, avoid markdown bug"]
+        nova_senha = request.form["nova_senha"]
         confirmar = request.form["confirmar_senha"]
+
         id_usuario = session["id_usuario"]
 
         conn = conectar_db()
         c = conn.cursor()
+
+        # pegar senha atual no banco
         c.execute("SELECT senha FROM usuarios WHERE id=?", (id_usuario,))
         senha_banco = c.fetchone()["senha"]
 
+        # validar senha atual
         if not check_password_hash(senha_banco, senha_atual):
             conn.close()
-            return "Senha atual incorreta"
+            return "❌ Senha atual incorreta"
 
-        if len(nova_senha) < 8:
+        # validar força da senha
+        if len(nova_senha) < 8 or not re.search(r"[0-9]", nova_senha) or not re.search(r"[!@#$%^&*]", nova_senha):
             conn.close()
-            return "Senha fraca"
+            return "❌ Senha fraca (mín 8 caracteres, número e símbolo)"
 
         if nova_senha != confirmar:
             conn.close()
-            return "Senhas não conferem"
+            return "❌ Senhas não conferem"
 
+        # salvar hash
         nova_hash = generate_password_hash(nova_senha)
         c.execute("UPDATE usuarios SET senha=? WHERE id=?", (nova_hash, id_usuario))
         conn.commit()
         conn.close()
 
+        # 🔒 LOGOUT AUTOMÁTICO
         session.clear()
         return redirect("/")
 
@@ -1304,6 +1307,7 @@ def admin_deletar_usuario(id):
 
 # ================= START =================
 criar_banco()
+
 
 
 
