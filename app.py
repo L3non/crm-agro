@@ -141,23 +141,34 @@ def login():
 
         conn = conectar_db()
         c = conn.cursor()
-
-        # 🔒 BUSCAR USUÁRIO (SEM SENHA NO SQL)
         c.execute("SELECT * FROM usuarios WHERE usuario=?", (usuario,))
         user = c.fetchone()
         conn.close()
 
-        # 🔒 VERIFICAR SENHA COM HASH
-        if user and check_password_hash(user["senha"], senha):
-            session["logado"] = True
-            session["id_usuario"] = user["id"]
-            session["nome_usuario"] = user["nome"]
-            session["tipo"] = user["tipo"]
-            return redirect("/dashboard")
-        else:
+        if not user:
             return "❌ Usuário ou senha inválidos"
 
+        senha_banco = user["senha"]
+
+        # SE A SENHA NO BANCO FOR HASH
+        if senha_banco.startswith("scrypt") or senha_banco.startswith("pbkdf2"):
+            if not check_password_hash(senha_banco, senha):
+                return "❌ Usuário ou senha inválidos"
+        else:
+            # SENHA SIMPLES (1234, etc)
+            if senha != senha_banco:
+                return "❌ Usuário ou senha inválidos"
+
+        # LOGIN OK
+        session["logado"] = True
+        session["id_usuario"] = user["id"]
+        session["nome_usuario"] = user["nome"]
+        session["tipo"] = user["tipo"]
+
+        return redirect("/dashboard")
+
     return render_template("login.html")
+
 
 # ================= LOGOUT =================
 @app.route("/logout")
@@ -1293,6 +1304,7 @@ def admin_deletar_usuario(id):
 
 # ================= START =================
 criar_banco()
+
 
 
 
