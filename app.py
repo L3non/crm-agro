@@ -408,16 +408,16 @@ def clientes():
             request.form["fazenda"],
             request.form["cpf"],
             request.form["observacoes"],
-            id_usuario
+            id_usuario   # continua salvando quem cadastrou
         ))
         conn.commit()
 
-    # BUSCA
+    # BUSCA (GLOBAL - TODOS OS CLIENTES)
     termo = request.args.get("q","")
     if termo:
-        c.execute("SELECT * FROM clientes WHERE nome LIKE ? AND id_usuario=?", (f"%{termo}%", id_usuario))
+        c.execute("SELECT * FROM clientes WHERE nome LIKE ? ORDER BY nome", (f"%{termo}%",))
     else:
-        c.execute("SELECT * FROM clientes WHERE id_usuario=?", (id_usuario,))
+        c.execute("SELECT * FROM clientes ORDER BY nome")
 
     dados = c.fetchall()
     conn.close()
@@ -1385,6 +1385,7 @@ def admin_deletar_usuario(id):
 
 # ================= START =================
 criar_banco()
+
 
 
 
