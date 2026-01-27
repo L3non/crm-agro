@@ -166,47 +166,33 @@ def logout():
     return redirect("/")
 
 # ================= TROCAR SENHA =================
-@app.route("/trocar_senha", methods=["GET", "POST"])
+@app.route("/trocar_senha", methods=["POST"])
 def trocar_senha():
     if not session.get("logado"):
         return redirect("/")
 
-    from werkzeug.security import generate_password_hash, check_password_hash
-    import re
+    senha_atual = request.form["senha_atual"]
+    nova = request.form["nova_senha"]
+    confirmar = request.form["confirmar_senha"]
 
-    if request.method == "POST":
-        senha_atual = request.form["senha_atual"]
-        nova_senha = request.form["nova_senha"]
-        confirmar = request.form["confirmar_senha"]
+    if nova != confirmar:
+        return "Senhas não conferem"
 
-        id_usuario = session["id_usuario"]
+    id_usuario = session["id_usuario"]
 
-        conn = conectar_db()
-        c = conn.cursor()
+    conn = conectar_db()
+    c = conn.cursor()
+    c.execute("SELECT senha FROM usuarios WHERE id=?", (id_usuario,))
+    senha_banco = c.fetchone()["senha"]
 
-        # pegar senha atual no banco
-        c.execute("SELECT senha FROM usuarios WHERE id=?", (id_usuario,))
-        senha_banco = c.fetchone()["senha"]
+    if senha_atual != senha_banco:
+        return "Senha atual errada"
 
-        # validar senha atual
-        if not check_password_hash(senha_banco, senha_atual):
-            conn.close()
-            return "❌ Senha atual incorreta"
+    c.execute("UPDATE usuarios SET senha=? WHERE id=?", (nova, id_usuario))
+    conn.commit()
+    conn.close()
 
-        # validar força da senha
-        if len(nova_senha) < 8 or not re.search(r"[0-9]", nova_senha) or not re.search(r"[!@#$%^&*]", nova_senha):
-            conn.close()
-            return "❌ Senha fraca (mín 8 caracteres, número e símbolo)"
-
-        if nova_senha != confirmar:
-            conn.close()
-            return "❌ Senhas não conferem"
-
-        # salvar hash
-        nova_hash = generate_password_hash(nova_senha)
-        c.execute("UPDATE usuarios SET senha=? WHERE id=?", (nova_hash, id_usuario))
-        conn.commit()
-        conn.close()
+    return "Senha alterada"
 
         # 🔒 LOGOUT AUTOMÁTICO
         session.clear()
@@ -1307,6 +1293,7 @@ def admin_deletar_usuario(id):
 
 # ================= START =================
 criar_banco()
+
 
 
 
