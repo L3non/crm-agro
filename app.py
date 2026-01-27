@@ -435,7 +435,8 @@ def vendas():
     id_usuario = session["id_usuario"]  # 👤 usuário logado
 
     # ================= CLIENTES =================
-    c.execute("SELECT nome FROM clientes WHERE id_usuario=? ORDER BY nome", (id_usuario,))
+    # CLIENTES GLOBAIS (todos vendedores veem)
+    c.execute("SELECT nome FROM clientes ORDER BY nome")
     clientes = [r["nome"] for r in c.fetchall()]
 
     # ================= PRODUTOS (EXISTENTES) =================
@@ -549,7 +550,6 @@ def vendas():
         data_fim=data_fim,
         total_periodo=total_periodo
     )
-
 
 # ================= DETALHE VENDA =================
 @app.route("/venda/<int:id_venda>")
@@ -1385,6 +1385,7 @@ def admin_deletar_usuario(id):
 
 # ================= START =================
 criar_banco()
+
 
 
 
