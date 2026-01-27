@@ -270,6 +270,7 @@ def dashboard():
     total_vendas = c.fetchone()[0] or 0
 
     hoje = datetime.now()
+    hoje_data = hoje.date()
     mes_atual = hoje.strftime("%Y-%m")
     mes_anterior = (hoje.replace(day=1) - timedelta(days=1)).strftime("%Y-%m")
 
@@ -295,6 +296,64 @@ def dashboard():
     """, (id_usuario,))
     top_clientes = c.fetchall()
 
+    # ================= ALERTAS CONTAGEM =================
+    c.execute("""
+        SELECT v.cliente, i.produto, v.data
+        FROM vendas v
+        JOIN itens_venda i ON v.id = i.id_venda
+        WHERE v.id_usuario=?
+        ORDER BY v.cliente, i.produto, v.data
+    """, (id_usuario,))
+    registros = c.fetchall()
+
+    historico = {}
+    for r in registros:
+        chave = (r["cliente"], r["produto"])
+        historico.setdefault(chave, []).append(datetime.strptime(r["data"], "%Y-%m-%d"))
+
+    qtd_atrasados = 0
+    qtd_hoje = 0
+    qtd_proximos = 0
+
+    for (cliente, produto), datas in historico.items():
+        if len(datas) < 2:
+            continue
+
+        intervalos = [(datas[i] - datas[i-1]).days for i in range(1, len(datas)) if (datas[i] - datas[i-1]).days > 0]
+        if not intervalos:
+            continue
+
+        media = round(sum(intervalos) / len(intervalos))
+        ultima = datas[-1].date()
+        proxima = ultima + timedelta(days=media)
+        diff = (proxima - hoje_data).days
+
+        if diff < 0:
+            qtd_atrasados += 1
+        elif diff == 0:
+            qtd_hoje += 1
+        elif diff <= 3:
+            qtd_proximos += 1
+
+    # ================= CLIENTES EM RISCO =================
+    c.execute("""
+        SELECT cliente, MAX(data) ultima
+        FROM vendas
+        WHERE id_usuario=?
+        GROUP BY cliente
+    """, (id_usuario,))
+    ultimas = c.fetchall()
+
+    risco_30 = risco_60 = risco_90 = 0
+
+    for u in ultimas:
+        ultima_data = datetime.strptime(u["ultima"], "%Y-%m-%d").date()
+        dias = (hoje_data - ultima_data).days
+
+        if dias >= 30: risco_30 += 1
+        if dias >= 60: risco_60 += 1
+        if dias >= 90: risco_90 += 1
+
     conn.close()
 
     return render_template(
@@ -303,7 +362,15 @@ def dashboard():
         total_comissao=total_comissao,
         vendas_mes_atual=vendas_mes_atual,
         vendas_mes_anterior=vendas_mes_anterior,
-        top_clientes=top_clientes
+        top_clientes=top_clientes,
+
+        # CONTADORES
+        qtd_atrasados=qtd_atrasados,
+        qtd_hoje=qtd_hoje,
+        qtd_proximos=qtd_proximos,
+        risco_30=risco_30,
+        risco_60=risco_60,
+        risco_90=risco_90
     )
 
 # ================= CLIENTES =================
@@ -1304,6 +1371,7 @@ def admin_deletar_usuario(id):
 
 # ================= START =================
 criar_banco()
+
 
 
 
