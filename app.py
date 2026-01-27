@@ -254,7 +254,6 @@ def admin_reset_senha(id_usuario):
 
     return "Senha resetada para 1234"
 
-
 # ================= DASHBOARD =================
 @app.route("/dashboard")
 def dashboard():
@@ -328,6 +327,21 @@ def dashboard():
         proxima = ultima + timedelta(days=media)
         diff = (proxima - hoje_data).days
 
+        # 🔒 VERIFICAR SE ALERTA FOI ADIADO OU DESCARTADO
+        c.execute("""
+            SELECT ocultar_ate 
+            FROM alertas_controle
+            WHERE cliente=? AND produto=? AND id_usuario=?
+        """, (cliente, produto, id_usuario))
+        controle = c.fetchone()
+
+        if controle:
+            ocultar_ate = datetime.strptime(controle["ocultar_ate"], "%Y-%m-%d").date()
+            # se ainda está oculto, NÃO contar
+            if ocultar_ate >= hoje_data:
+                continue
+
+        # CONTAR ALERTAS
         if diff < 0:
             qtd_atrasados += 1
         elif diff == 0:
@@ -1371,6 +1385,7 @@ def admin_deletar_usuario(id):
 
 # ================= START =================
 criar_banco()
+
 
 
 
