@@ -120,10 +120,10 @@ def criar_banco():
     conn.close()
 
 
+# 🔥 CRIA BANCO AUTOMATICAMENTE AO SUBIR
+criar_banco()
 
-# ================= AUTH IMPORTS =================
-from werkzeug.security import generate_password_hash, check_password_hash
-import re
+
 
 # ================= LOGIN =================
 @app.route("/", methods=["GET","POST"])
@@ -139,11 +139,11 @@ def login():
         conn.close()
 
         if not user:
-            return "❌ Usuário ou senha inválidos"
+            return "Usuário ou senha inválidos"
 
         senha_banco = user["senha"] or ""
 
-        # ACEITA SENHA ANTIGA SEM HASH (LEGADO)
+        # aceita senha antiga sem hash
         if not senha_banco.startswith("scrypt") and not senha_banco.startswith("pbkdf2"):
             if senha == senha_banco:
                 session["logado"] = True
@@ -152,7 +152,7 @@ def login():
                 session["tipo"] = user["tipo"]
                 return redirect("/dashboard")
 
-        # SENHA HASH
+        # senha hash
         if check_password_hash(senha_banco, senha):
             session["logado"] = True
             session["id_usuario"] = user["id"]
@@ -160,7 +160,7 @@ def login():
             session["tipo"] = user["tipo"]
             return redirect("/dashboard")
 
-        return "❌ Usuário ou senha inválidos"
+        return "Usuário ou senha inválidos"
 
     return render_template("login.html")
 
@@ -180,7 +180,7 @@ def trocar_senha():
 
     if request.method == "POST":
         senha_atual = request.form["senha_atual"]
-        nova_senha = request.form["nova_senha"]
+        nova_senha = request.form["nova_s highlights code, avoid markdown bug"]
         confirmar = request.form["confirmar_senha"]
         id_usuario = session["id_usuario"]
 
@@ -191,15 +191,15 @@ def trocar_senha():
 
         if not check_password_hash(senha_banco, senha_atual):
             conn.close()
-            return "❌ Senha atual incorreta"
+            return "Senha atual incorreta"
 
-        if len(nova_senha) < 8 or not re.search(r"[0-9]", nova_senha) or not re.search(r"[!@#$%^&*]", nova_senha):
+        if len(nova_senha) < 8:
             conn.close()
-            return "❌ Senha fraca"
+            return "Senha fraca"
 
         if nova_senha != confirmar:
             conn.close()
-            return "❌ Senhas não conferem"
+            return "Senhas não conferem"
 
         nova_hash = generate_password_hash(nova_senha)
         c.execute("UPDATE usuarios SET senha=? WHERE id=?", (nova_hash, id_usuario))
@@ -253,6 +253,7 @@ def admin_reset_senha(id_usuario):
     conn.close()
 
     return "Senha resetada para 1234"
+
 
 # ================= DASHBOARD =================
 @app.route("/dashboard")
@@ -1321,6 +1322,7 @@ def admin_deletar_usuario(id):
 
 # ================= START =================
 criar_banco()
+
 
 
 
