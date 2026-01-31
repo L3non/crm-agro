@@ -1290,9 +1290,8 @@ def importar_pdf():
             if m:
                 produto = m.group(1).strip()
 
-                # ===== REMOVER CONTROLE / NTF DO NOME DO PRODUTO =====
-                produto = re.sub(r'NTF\d+', '', produto).strip()
-                # ===================================================
+                # ✅ REMOVER CONTROLE (ex: 104/25, 031/24, 012/25) DO FINAL
+                produto = re.sub(r'\s+\d{2,3}/\d{2}$', '', produto).strip()
 
                 qtd = float(m.group(2).replace(".", "").replace(",", "."))
                 valor = float(m.group(3).replace(".", "").replace(",", "."))
@@ -1390,6 +1389,7 @@ def admin_deletar_usuario(id):
 
 # ================= START =================
 criar_banco()
+
 
 
 
