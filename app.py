@@ -11,7 +11,7 @@ import re
 
 def calcular_dias_sem_compra(data_ultima_compra):
     if not data_ultima_compra:
-        return NoneF
+        return None
     try:
         data = datetime.strptime(data_ultima_compra, "%Y-%m-%d")
         hoje = datetime.now()
@@ -1427,6 +1427,7 @@ def admin_deletar_usuario(id):
 
 # ================= START =================
 criar_banco()
+
 
 
 
