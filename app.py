@@ -1250,13 +1250,11 @@ def importar_pdf():
     id_usuario = session["id_usuario"]
 
     if request.method == "POST":
+
         import pdfplumber
         import re
 
         arquivos = request.files.getlist("arquivo")
-
-        if not arquivos:
-            return redirect("/vendas")
 
         conn = conectar_db()
         c = conn.cursor()
@@ -1268,13 +1266,20 @@ def importar_pdf():
             cliente = "CLIENTE PDF"
             data_venda = datetime.now().strftime("%Y-%m-%d")
 
-            # ================= LER PDF =================
             with pdfplumber.open(arquivo) as pdf:
+
                 texto = ""
+                tabelas = []
+
                 for page in pdf.pages:
+
                     t = page.extract_text()
                     if t:
                         texto += t + "\n"
+
+                    tables = page.extract_tables()
+                    if tables:
+                        tabelas.extend(tables)
 
             # ================= CLIENTE =================
             m_cliente = re.search(r"Parceiro.*?:\s*\d+\s+([^\n]+)", texto)
@@ -1289,34 +1294,28 @@ def importar_pdf():
 
             primeiro_mes = data_venda[:7]
 
-            # ================= TOTAL =================
-            m_total = re.search(r"Valor\s+([\d\.,]+)\s*$", texto, re.MULTILINE)
-            if m_total:
-                valor_total = float(m_total.group(1).replace(".", "").replace(",", "."))
+            # ================= PEGAR PRODUTOS VIA TABELA =================
+            for tabela in tabelas:
 
-            # ================= PRODUTOS =================
-            linhas = texto.split("\n")
+                for linha in tabela:
 
-            for linha in linhas:
+                    if not linha or len(linha) < 6:
+                        continue
 
-                if not re.match(r"^\d+\s", linha):
-                    continue
+                    try:
 
-                partes = linha.split()
+                        produto = linha[1]
 
-                if len(partes) < 6:
-                    continue
+                        qtd = float(str(linha[3]).replace(".", "").replace(",", "."))
+                        valor = float(str(linha[4]).replace(".", "").replace(",", "."))
+                        total_item = float(str(linha[-1]).replace(".", "").replace(",", "."))
 
-                try:
-                    qtd = float(partes[-4].replace(".", "").replace(",", "."))
-                    valor_unit = float(partes[-3].replace(".", "").replace(",", "."))
-                    total_item = float(partes[-1].replace(".", "").replace(",", "."))
-                except:
-                    continue
+                        valor_total += total_item
 
-                produto = " ".join(partes[1:-4]).strip()
+                        itens.append((produto, qtd, valor, total_item))
 
-                itens.append((produto, qtd, valor_unit, total_item))
+                    except:
+                        continue
 
             if not itens:
                 continue
@@ -1339,8 +1338,8 @@ def importar_pdf():
 
             id_venda = c.lastrowid
 
-            # ================= ITENS =================
             for item in itens:
+
                 c.execute("""
                     INSERT INTO itens_venda
                     (id_venda, produto, quantidade, valor_unitario, total_item)
@@ -1358,6 +1357,7 @@ def importar_pdf():
         return redirect("/vendas")
 
     return render_template("importar_pdf.html")
+
 
 
 
@@ -1417,6 +1417,7 @@ def admin_deletar_usuario(id):
 
 # ================= START =================
 criar_banco()
+
 
 
 
