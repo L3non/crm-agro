@@ -1304,33 +1304,26 @@ def importar_pdf():
 
             for l in linhas:
 
-                if not re.match(r"^\d+\s", l):
+                # PADRÃO FIXO DO ITEM (evita erro de posição)
+                m_item = re.search(
+                    r'^\d+\s+(.+?)\s+BL\s+(\d+)\s+([\d\.,]+)\s+([\d\.,]+)',
+                    l
+                )
+
+                if not m_item:
                     continue
 
-                # pega todos os números da linha
-                numeros = re.findall(r"\d[\d.,]*", l)
+                produto = m_item.group(1).strip() + " BL"
+                qtd = float(m_item.group(2))
+                valor = float(m_item.group(3).replace(".", "").replace(",", "."))
+                total_item = float(m_item.group(4).replace(".", "").replace(",", "."))
 
-                if len(numeros) < 3:
-                    continue
-
-                try:
-                    # sempre usar os últimos números da linha
-                    qtd = float(numeros[-3].replace(".", "").replace(",", "."))
-                    valor = float(numeros[-2].replace(".", "").replace(",", "."))
-                    total_item = float(numeros[-1].replace(".", "").replace(",", "."))
-                except:
-                    continue
-
-                # limpar nome do produto
-                produto = re.sub(r"^\d+\s+", "", l)
-                produto = produto.split(" BL")[0] + " BL"
-
-                itens.append((produto.strip(), qtd, valor, total_item))
+                itens.append((produto, qtd, valor, total_item))
 
             if not itens:
                 continue
 
-            # NÃO DUPLICAR
+            # 🔒 NÃO DUPLICAR
             c.execute("""
                 SELECT id FROM vendas 
                 WHERE cliente=? AND data=? AND valor_total=? AND id_usuario=?
@@ -1339,7 +1332,7 @@ def importar_pdf():
             if c.fetchone():
                 continue
 
-            # INSERIR VENDA
+            # ================= INSERIR VENDA =================
             c.execute("""
                 INSERT INTO vendas
                 (data, cliente, valor_total, comissao_total, parcelas, primeiro_mes, id_usuario)
@@ -1348,7 +1341,7 @@ def importar_pdf():
 
             id_venda = c.lastrowid
 
-            # ITENS
+            # ================= ITENS =================
             for p in itens:
                 c.execute("""
                     INSERT INTO itens_venda
@@ -1425,6 +1418,7 @@ def admin_deletar_usuario(id):
 
 # ================= START =================
 criar_banco()
+
 
 
 
