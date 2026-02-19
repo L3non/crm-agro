@@ -1248,28 +1248,28 @@ def importar_pdf():
     if not session.get("logado"):
         return redirect("/")
 
-    from datetime import datetime
-    import pdfplumber
-    import re
-
     id_usuario = session["id_usuario"]
 
-    if request.method == "POST":
+    # GET apenas abre a página (SEM PROCESSAMENTO)
+    if request.method == "GET":
+        return render_template("importar_pdf.html")
 
-        # 🔒 proteção contra PDF grande (evita 502)
-        if request.content_length and request.content_length > 3 * 1024 * 1024:
-            return "Arquivo muito grande (máx 3MB)", 400
+    # ================= POST =================
 
-        arquivos = request.files.getlist("arquivo")
+    # proteção contra arquivo muito grande (evita 502)
+    if request.content_length and request.content_length > 3 * 1024 * 1024:
+        return "Arquivo muito grande (máx 3MB)", 400
 
-        conn = conectar_db()
-        c = conn.cursor()
+    arquivos = request.files.getlist("arquivo")
 
-        for arquivo in arquivos:
+    conn = conectar_db()
+    c = conn.cursor()
 
-            texto = ""
+    for arquivo in arquivos:
 
-            # 🔥 lê apenas a primeira página (seus PDFs têm 1 página)
+        try:
+
+            # 🔥 leitura leve (somente primeira página)
             with pdfplumber.open(arquivo) as pdf:
                 if not pdf.pages:
                     continue
@@ -1277,101 +1277,103 @@ def importar_pdf():
                 page = pdf.pages[0]
                 texto = page.extract_text() or ""
 
-            if not texto:
+        except:
+            continue
+
+        if not texto:
+            continue
+
+        # ================= CLIENTE =================
+        cliente = "CLIENTE PDF"
+
+        m_cliente = re.search(r"Raz\. Social\.\.\:\s*(.+)", texto)
+        if m_cliente:
+            cliente = m_cliente.group(1).split("Email")[0].strip()
+
+        # ================= DATA =================
+        data_venda = datetime.now().strftime("%Y-%m-%d")
+
+        m_data = re.search(r"Data Neg\.\:\s*(\d{2}/\d{2}/\d{4})", texto)
+        if m_data:
+            data_venda = datetime.strptime(
+                m_data.group(1), "%d/%m/%Y"
+            ).strftime("%Y-%m-%d")
+
+        primeiro_mes = data_venda[:7]
+
+        # ================= PRODUTOS =================
+        itens = []
+        valor_total = 0
+
+        linhas = texto.split("\n")
+
+        for l in linhas:
+
+            l = l.strip()
+
+            if len(l) < 5:
                 continue
 
-            # ================= CLIENTE =================
-            cliente = "CLIENTE PDF"
-            m_cliente = re.search(r"Raz\. Social\.\.\:\s*(.+)", texto)
-            if m_cliente:
-                cliente = m_cliente.group(1).split("Email")[0].strip()
-
-            # ================= DATA =================
-            data_venda = datetime.now().strftime("%Y-%m-%d")
-            m_data = re.search(r"Data Neg\.\:\s*(\d{2}/\d{2}/\d{4})", texto)
-            if m_data:
-                data_venda = datetime.strptime(
-                    m_data.group(1), "%d/%m/%Y"
-                ).strftime("%Y-%m-%d")
-
-            primeiro_mes = data_venda[:7]
-
-            # ================= PRODUTOS =================
-            itens = []
-            valor_total = 0
-
-            linhas = texto.split("\n")
-
-            for l in linhas:
-
-                l = l.strip()
-
-                # linha precisa começar com código numérico
-                if len(l) < 5:
-                    continue
-
-                if not l[:4].strip().isdigit():
-                    continue
-
-                if "BL" not in l:
-                    continue
-
-                partes = l.split()
-
-                # segurança contra linha fora do padrão
-                if len(partes) < 9:
-                    continue
-
-                try:
-                    # padrão fixo do layout HASS
-                    qtd = float(partes[-8].replace(",", "."))
-                    valor = float(partes[-7].replace(".", "").replace(",", "."))
-                    total_item = float(partes[-6].replace(".", "").replace(",", "."))
-                except:
-                    continue
-
-                if qtd <= 0 or valor <= 0:
-                    continue
-
-                produto = " ".join(partes[1:-8]).strip()
-
-                itens.append((produto, qtd, valor, total_item))
-                valor_total += total_item
-
-            if not itens:
+            # linha começa com código numérico
+            if not l[:4].strip().isdigit():
                 continue
 
-            # ================= NÃO DUPLICAR =================
+            if "BL" not in l:
+                continue
+
+            partes = l.split()
+
+            if len(partes) < 9:
+                continue
+
+            try:
+                qtd = float(partes[-8].replace(",", "."))
+                valor = float(partes[-7].replace(".", "").replace(",", "."))
+                total_item = float(partes[-6].replace(".", "").replace(",", "."))
+            except:
+                continue
+
+            if qtd <= 0 or valor <= 0:
+                continue
+
+            produto = " ".join(partes[1:-8]).strip()
+
+            itens.append((produto, qtd, valor, total_item))
+            valor_total += total_item
+
+        if not itens:
+            continue
+
+        # ================= NÃO DUPLICAR =================
+        c.execute("""
+            SELECT id FROM vendas
+            WHERE cliente=? AND data=? AND valor_total=? AND id_usuario=?
+        """, (cliente, data_venda, valor_total, id_usuario))
+
+        if c.fetchone():
+            continue
+
+        # ================= INSERE VENDA =================
+        c.execute("""
+            INSERT INTO vendas
+            (data, cliente, valor_total, comissao_total, parcelas, primeiro_mes, id_usuario)
+            VALUES (?, ?, ?, 0, 1, ?, ?)
+        """, (data_venda, cliente, valor_total, primeiro_mes, id_usuario))
+
+        id_venda = c.lastrowid
+
+        for item in itens:
             c.execute("""
-                SELECT id FROM vendas
-                WHERE cliente=? AND data=? AND valor_total=? AND id_usuario=?
-            """, (cliente, data_venda, valor_total, id_usuario))
+                INSERT INTO itens_venda
+                (id_venda, produto, quantidade, valor_unitario, total_item)
+                VALUES (?, ?, ?, ?, ?)
+            """, (id_venda, item[0], item[1], item[2], item[3]))
 
-            if c.fetchone():
-                continue
+    conn.commit()
+    conn.close()
 
-            # ================= INSERE VENDA =================
-            c.execute("""
-                INSERT INTO vendas
-                (data, cliente, valor_total, comissao_total, parcelas, primeiro_mes, id_usuario)
-                VALUES (?, ?, ?, 0, 1, ?, ?)
-            """, (data_venda, cliente, valor_total, primeiro_mes, id_usuario))
+    return redirect("/vendas")
 
-            id_venda = c.lastrowid
-
-            for item in itens:
-                c.execute("""
-                    INSERT INTO itens_venda
-                    (id_venda, produto, quantidade, valor_unitario, total_item)
-                    VALUES (?, ?, ?, ?, ?)
-                """, (id_venda, item[0], item[1], item[2], item[3]))
-
-        conn.commit()
-        conn.close()
-
-        return redirect("/vendas")
-
-    return render_template("importar_pdf.html")
 
 
 
@@ -1431,6 +1433,7 @@ def admin_deletar_usuario(id):
 
 # ================= START =================
 criar_banco()
+
 
 
 
