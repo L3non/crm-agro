@@ -1279,7 +1279,7 @@ def importar_pdf():
                     if t:
                         texto += t + "\n"
 
-            # ================= CLIENTE (PARCEIRO) =================
+            # ================= CLIENTE =================
             m_cliente = re.search(r"Parceiro.*?:\s*\d+\s+(.+)", texto)
             if m_cliente:
                 cliente = m_cliente.group(1)
@@ -1294,7 +1294,7 @@ def importar_pdf():
 
             primeiro_mes = data_venda[:7]
 
-            # ================= TOTAL (PEGAR APENAS O TOTAL FINAL) =================
+            # ================= TOTAL =================
             m_total = re.search(r"Valor\s+([\d\.,]+)\s*$", texto, re.MULTILINE)
             if m_total:
                 valor_total = float(m_total.group(1).replace(".", "").replace(",", "."))
@@ -1307,29 +1307,30 @@ def importar_pdf():
                 if not re.match(r"^\d+\s", l):
                     continue
 
+                # pega todos os números da linha
                 numeros = re.findall(r"\d[\d.,]*", l)
 
-                if len(numeros) < 4:
+                if len(numeros) < 3:
                     continue
 
                 try:
+                    # sempre usar os últimos números da linha
                     qtd = float(numeros[-3].replace(".", "").replace(",", "."))
                     valor = float(numeros[-2].replace(".", "").replace(",", "."))
+                    total_item = float(numeros[-1].replace(".", "").replace(",", "."))
                 except:
                     continue
 
+                # limpar nome do produto
                 produto = re.sub(r"^\d+\s+", "", l)
-                produto = re.sub(r"\s+\d[\d.,]*\s+\d[\d.,]*\s+\d[\d.,]*.*$", "", produto).strip()
+                produto = produto.split(" BL")[0] + " BL"
 
-                total_item = qtd * valor
+                itens.append((produto.strip(), qtd, valor, total_item))
 
-                itens.append((produto, qtd, valor, total_item))
-
-            # Se não encontrou itens válidos, pula
             if not itens:
                 continue
 
-            # 🔒 NÃO DUPLICAR
+            # NÃO DUPLICAR
             c.execute("""
                 SELECT id FROM vendas 
                 WHERE cliente=? AND data=? AND valor_total=? AND id_usuario=?
@@ -1338,7 +1339,7 @@ def importar_pdf():
             if c.fetchone():
                 continue
 
-            # ================= INSERIR VENDA =================
+            # INSERIR VENDA
             c.execute("""
                 INSERT INTO vendas
                 (data, cliente, valor_total, comissao_total, parcelas, primeiro_mes, id_usuario)
@@ -1347,7 +1348,7 @@ def importar_pdf():
 
             id_venda = c.lastrowid
 
-            # ================= ITENS =================
+            # ITENS
             for p in itens:
                 c.execute("""
                     INSERT INTO itens_venda
@@ -1366,6 +1367,7 @@ def importar_pdf():
         return redirect("/vendas")
 
     return render_template("importar_pdf.html")
+
 
 
 
@@ -1423,6 +1425,7 @@ def admin_deletar_usuario(id):
 
 # ================= START =================
 criar_banco()
+
 
 
 
