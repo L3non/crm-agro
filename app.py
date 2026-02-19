@@ -1299,28 +1299,41 @@ def importar_pdf():
 
                 l = l.strip()
 
-                # linha de produto começa com código
+                # começa com código numérico
                 if not re.match(r"^\d+\s", l):
                     continue
 
-                # unidade padrão do PDF
-                if " BL " not in l:
+                if "BL" not in l:
                     continue
 
                 try:
 
-                    partes = re.split(r"\s{1,}", l)
+                    # extrair todos valores monetários da linha
+                    valores = re.findall(r"\d+\.\d{3},\d{2}", l)
 
-                    codigo = partes[0]
+                    if len(valores) < 2:
+                        continue
 
-                    # posições fixas nesse layout
-                    qtd = float(partes[-8].replace(",", "."))
-                    valor = float(partes[-7].replace(".", "").replace(",", "."))
-                    total_item = float(partes[-6].replace(".", "").replace(",", "."))
+                    # quantidade normalmente é número simples antes do primeiro valor monetário
+                    partes = l.split("BL")
+                    if len(partes) < 2:
+                        continue
 
-                    produto = " ".join(partes[1:-8])
+                    apos_bl = partes[1].strip()
 
-                    # validação forte
+                    numeros = re.findall(r"\d+[.,]?\d*", apos_bl)
+
+                    if len(numeros) < 3:
+                        continue
+
+                    qtd = float(numeros[0].replace(",", "."))
+                    valor = float(valores[0].replace(".", "").replace(",", "."))
+                    total_item = float(valores[1].replace(".", "").replace(",", "."))
+
+                    # descrição = tudo entre código e BL
+                    descricao = re.split(r"\sBL\s?", l)[0]
+                    produto = " ".join(descricao.split()[1:]).strip()
+
                     if qtd <= 0 or valor <= 0:
                         continue
 
@@ -1370,6 +1383,7 @@ def importar_pdf():
         return redirect("/vendas")
 
     return render_template("importar_pdf.html")
+
 
 
 
@@ -1427,6 +1441,7 @@ def admin_deletar_usuario(id):
 
 # ================= START =================
 criar_banco()
+
 
 
 
