@@ -1383,6 +1383,7 @@ def importar_pdf():
 
 
 
+
 # ================= ADMIN USUÁRIOS =================
 @app.route("/admin_usuarios", methods=["GET", "POST"])
 def admin_usuarios():
@@ -1437,6 +1438,7 @@ def admin_deletar_usuario(id):
 
 # ================= START =================
 criar_banco()
+
 
 
 
