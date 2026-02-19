@@ -1263,86 +1263,107 @@ def importar_pdf():
 
         for arquivo in arquivos:
 
-            texto = ""
-
-            with pdfplumber.open(arquivo) as pdf:
-                for page in pdf.pages:
-                    t = page.extract_text()
-                    if t:
-                        texto += t + "\n"
-
-            # ================= CLIENTE =================
             cliente = "CLIENTE PDF"
-            m_cliente = re.search(r"Parceiro.*?:\s*\d+\s+(.+)", texto)
-            if m_cliente:
-                cliente = m_cliente.group(1).split("Fone")[0].replace("-", "").strip()
-
-            # ================= DATA =================
             data_venda = datetime.now().strftime("%Y-%m-%d")
-            m_data = re.search(r"Data Neg.*?:\s*(\d{2}/\d{2}/\d{4})", texto)
-            if m_data:
-                data_venda = datetime.strptime(m_data.group(1), "%d/%m/%Y").strftime("%Y-%m-%d")
-
             primeiro_mes = data_venda[:7]
 
-            # ================= PRODUTOS =================
             itens = []
             valor_total = 0
 
-            linhas = texto.split("\n")
+            with pdfplumber.open(arquivo) as pdf:
 
-            for l in linhas:
+                texto_total = ""
 
-                if "BL" not in l:
+                for page in pdf.pages:
+
+                    # ================= TEXTO (cliente + data) =================
+                    t = page.extract_text()
+                    if t:
+                        texto_total += t + "\n"
+
+                    # ================= TABELAS (PRODUTOS) =================
+                    tabelas = page.extract_tables()
+
+                    if not tabelas:
+                        continue
+
+                    for tabela in tabelas:
+
+                        for linha in tabela:
+
+                            if not linha:
+                                continue
+
+                            try:
+
+                                # Linha válida começa com código numérico
+                                if not linha[0] or not str(linha[0]).isdigit():
+                                    continue
+
+                                produto = str(linha[1]).strip()
+
+                                qtd = float(str(linha[4]).replace(",", "."))
+                                valor = float(str(linha[5]).replace(".", "").replace(",", "."))
+                                total_item = float(str(linha[6]).replace(".", "").replace(",", "."))
+
+                                # VALIDAÇÃO FORTE
+                                if qtd <= 0 or valor <= 0:
+                                    continue
+
+                                itens.append((produto, qtd, valor, total_item))
+
+                                valor_total += total_item
+
+                            except:
+                                continue
+
+                # ================= CLIENTE =================
+                m_cliente = re.search(r"\d+\s-\s(.+?)\s\d{10,}", texto_total)
+                if m_cliente:
+                    cliente = m_cliente.group(1).strip()
+
+                # ================= DATA =================
+                m_data = re.search(r"Data Neg\.\:\s*(\d{2}/\d{2}/\d{4})", texto_total)
+                if m_data:
+                    data_venda = datetime.strptime(
+                        m_data.group(1), "%d/%m/%Y"
+                    ).strftime("%Y-%m-%d")
+
+                primeiro_mes = data_venda[:7]
+
+                if not itens:
                     continue
 
-                partes = l.split()
+                # ================= NÃO DUPLICAR =================
+                c.execute("""
+                    SELECT id FROM vendas
+                    WHERE cliente=? AND data=? AND valor_total=? AND id_usuario=?
+                """, (cliente, data_venda, valor_total, id_usuario))
 
-                try:
-                    qtd = float(partes[-5].replace(",", "."))
-                    valor = float(partes[-4].replace(".", "").replace(",", "."))
-                    total_item = float(partes[-3].replace(".", "").replace(",", "."))
-                except:
+                if c.fetchone():
                     continue
 
-                produto = " ".join(partes[1:-5])
-
-                valor_total += total_item
-
-                itens.append((produto, qtd, valor, total_item))
-
-            if not itens:
-                continue
-
-            # NÃO DUPLICAR
-            c.execute("""
-                SELECT id FROM vendas
-                WHERE cliente=? AND data=? AND valor_total=? AND id_usuario=?
-            """, (cliente, data_venda, valor_total, id_usuario))
-
-            if c.fetchone():
-                continue
-
-            c.execute("""
-                INSERT INTO vendas
-                (data, cliente, valor_total, comissao_total, parcelas, primeiro_mes, id_usuario)
-                VALUES (?, ?, ?, 0, 1, ?, ?)
-            """, (data_venda, cliente, valor_total, primeiro_mes, id_usuario))
-
-            id_venda = c.lastrowid
-
-            for item in itens:
-
+                # ================= INSERE VENDA =================
                 c.execute("""
-                    INSERT INTO itens_venda
-                    (id_venda, produto, quantidade, valor_unitario, total_item)
-                    VALUES (?, ?, ?, ?, ?)
-                """, (id_venda, item[0], item[1], item[2], item[3]))
+                    INSERT INTO vendas
+                    (data, cliente, valor_total, comissao_total, parcelas, primeiro_mes, id_usuario)
+                    VALUES (?, ?, ?, 0, 1, ?, ?)
+                """, (data_venda, cliente, valor_total, primeiro_mes, id_usuario))
 
-                c.execute("""
-                    DELETE FROM alertas_controle
-                    WHERE cliente=? AND produto=? AND id_usuario=?
-                """, (cliente, item[0], id_usuario))
+                id_venda = c.lastrowid
+
+                for item in itens:
+
+                    c.execute("""
+                        INSERT INTO itens_venda
+                        (id_venda, produto, quantidade, valor_unitario, total_item)
+                        VALUES (?, ?, ?, ?, ?)
+                    """, (id_venda, item[0], item[1], item[2], item[3]))
+
+                    c.execute("""
+                        DELETE FROM alertas_controle
+                        WHERE cliente=? AND produto=? AND id_usuario=?
+                    """, (cliente, item[0], id_usuario))
 
         conn.commit()
         conn.close()
@@ -1350,6 +1371,7 @@ def importar_pdf():
         return redirect("/vendas")
 
     return render_template("importar_pdf.html")
+
 
 
 
@@ -1409,6 +1431,7 @@ def admin_deletar_usuario(id):
 
 # ================= START =================
 criar_banco()
+
 
 
 
