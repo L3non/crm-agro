@@ -1255,16 +1255,23 @@ def importar_pdf():
 
         arquivos = request.files.getlist("arquivo")
 
+        if not arquivos:
+            return redirect("/vendas")
+
         conn = conectar_db()
         c = conn.cursor()
 
         for arquivo in arquivos:
+
+            if not arquivo:
+                continue
 
             itens = []
             valor_total = 0
             cliente = "CLIENTE PDF"
             data_venda = datetime.now().strftime("%Y-%m-%d")
 
+            # ================= LER PDF =================
             with pdfplumber.open(arquivo) as pdf:
                 texto = ""
                 for page in pdf.pages:
@@ -1272,7 +1279,7 @@ def importar_pdf():
                     if t:
                         texto += t + "\n"
 
-            # ================= CLIENTE =================
+            # ================= CLIENTE (PARCEIRO) =================
             m_cliente = re.search(r"Parceiro.*?:\s*\d+\s+(.+)", texto)
             if m_cliente:
                 cliente = m_cliente.group(1)
@@ -1287,8 +1294,8 @@ def importar_pdf():
 
             primeiro_mes = data_venda[:7]
 
-            # ================= TOTAL =================
-            m_total = re.search(r"Valor\s+([\d\.,]+)", texto)
+            # ================= TOTAL (PEGAR APENAS O TOTAL FINAL) =================
+            m_total = re.search(r"Valor\s+([\d\.,]+)\s*$", texto, re.MULTILINE)
             if m_total:
                 valor_total = float(m_total.group(1).replace(".", "").replace(",", "."))
 
@@ -1302,20 +1309,25 @@ def importar_pdf():
 
                 numeros = re.findall(r"\d[\d.,]*", l)
 
-                if len(numeros) < 3:
+                if len(numeros) < 4:
                     continue
 
                 try:
                     qtd = float(numeros[-3].replace(".", "").replace(",", "."))
                     valor = float(numeros[-2].replace(".", "").replace(",", "."))
-                    total_item = float(numeros[-1].replace(".", "").replace(",", "."))
                 except:
                     continue
 
                 produto = re.sub(r"^\d+\s+", "", l)
-                produto = produto.split(" BL")[0] + " BL"
+                produto = re.sub(r"\s+\d[\d.,]*\s+\d[\d.,]*\s+\d[\d.,]*.*$", "", produto).strip()
 
-                itens.append((produto.strip(), qtd, valor, total_item))
+                total_item = qtd * valor
+
+                itens.append((produto, qtd, valor, total_item))
+
+            # Se não encontrou itens válidos, pula
+            if not itens:
+                continue
 
             # 🔒 NÃO DUPLICAR
             c.execute("""
@@ -1354,6 +1366,7 @@ def importar_pdf():
         return redirect("/vendas")
 
     return render_template("importar_pdf.html")
+
 
 
 # ================= ADMIN USUÁRIOS =================
@@ -1410,6 +1423,7 @@ def admin_deletar_usuario(id):
 
 # ================= START =================
 criar_banco()
+
 
 
 
