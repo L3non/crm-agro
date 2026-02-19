@@ -1256,6 +1256,10 @@ def importar_pdf():
 
     if request.method == "POST":
 
+        # 🔒 proteção contra PDF grande (evita 502)
+        if request.content_length and request.content_length > 3 * 1024 * 1024:
+            return "Arquivo muito grande (máx 3MB)", 400
+
         arquivos = request.files.getlist("arquivo")
 
         conn = conectar_db()
@@ -1265,19 +1269,24 @@ def importar_pdf():
 
             texto = ""
 
+            # 🔥 lê apenas a primeira página (seus PDFs têm 1 página)
             with pdfplumber.open(arquivo) as pdf:
-                for page in pdf.pages:
-                    t = page.extract_text()
-                    if t:
-                        texto += t + "\n"
+                if not pdf.pages:
+                    continue
 
-            # CLIENTE
+                page = pdf.pages[0]
+                texto = page.extract_text() or ""
+
+            if not texto:
+                continue
+
+            # ================= CLIENTE =================
             cliente = "CLIENTE PDF"
             m_cliente = re.search(r"Raz\. Social\.\.\:\s*(.+)", texto)
             if m_cliente:
                 cliente = m_cliente.group(1).split("Email")[0].strip()
 
-            # DATA
+            # ================= DATA =================
             data_venda = datetime.now().strftime("%Y-%m-%d")
             m_data = re.search(r"Data Neg\.\:\s*(\d{2}/\d{2}/\d{4})", texto)
             if m_data:
@@ -1287,7 +1296,7 @@ def importar_pdf():
 
             primeiro_mes = data_venda[:7]
 
-            # PRODUTOS
+            # ================= PRODUTOS =================
             itens = []
             valor_total = 0
 
@@ -1297,33 +1306,34 @@ def importar_pdf():
 
                 l = l.strip()
 
-                # começa com número
+                # linha precisa começar com código numérico
                 if len(l) < 5:
                     continue
 
                 if not l[:4].strip().isdigit():
                     continue
 
-                if " BL " not in l and " BL" not in l:
+                if "BL" not in l:
                     continue
 
                 partes = l.split()
 
-                # proteção contra linha fora do padrão
-                if len(partes) < 10:
+                # segurança contra linha fora do padrão
+                if len(partes) < 9:
                     continue
 
                 try:
+                    # padrão fixo do layout HASS
                     qtd = float(partes[-8].replace(",", "."))
                     valor = float(partes[-7].replace(".", "").replace(",", "."))
                     total_item = float(partes[-6].replace(".", "").replace(",", "."))
                 except:
                     continue
 
-                produto = " ".join(partes[1:-8])
-
                 if qtd <= 0 or valor <= 0:
                     continue
+
+                produto = " ".join(partes[1:-8]).strip()
 
                 itens.append((produto, qtd, valor, total_item))
                 valor_total += total_item
@@ -1331,7 +1341,7 @@ def importar_pdf():
             if not itens:
                 continue
 
-            # NÃO DUPLICAR
+            # ================= NÃO DUPLICAR =================
             c.execute("""
                 SELECT id FROM vendas
                 WHERE cliente=? AND data=? AND valor_total=? AND id_usuario=?
@@ -1340,6 +1350,7 @@ def importar_pdf():
             if c.fetchone():
                 continue
 
+            # ================= INSERE VENDA =================
             c.execute("""
                 INSERT INTO vendas
                 (data, cliente, valor_total, comissao_total, parcelas, primeiro_mes, id_usuario)
@@ -1361,6 +1372,7 @@ def importar_pdf():
         return redirect("/vendas")
 
     return render_template("importar_pdf.html")
+
 
 
 
@@ -1419,6 +1431,7 @@ def admin_deletar_usuario(id):
 
 # ================= START =================
 criar_banco()
+
 
 
 
