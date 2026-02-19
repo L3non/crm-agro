@@ -1272,16 +1272,24 @@ def importar_pdf():
 
             with pdfplumber.open(arquivo) as pdf:
 
-                texto_total = ""
-
                 for page in pdf.pages:
 
-                    # ================= TEXTO (cliente + data) =================
-                    t = page.extract_text()
-                    if t:
-                        texto_total += t + "\n"
+                    # TEXTO (cliente + data)
+                    texto = page.extract_text() or ""
 
-                    # ================= TABELAS (PRODUTOS) =================
+                    if "Data Neg." in texto:
+                        m_data = re.search(r"Data Neg\.\:\s*(\d{2}/\d{2}/\d{4})", texto)
+                        if m_data:
+                            data_venda = datetime.strptime(
+                                m_data.group(1), "%d/%m/%Y"
+                            ).strftime("%Y-%m-%d")
+
+                    if "Raz. Social" in texto:
+                        m_cliente = re.search(r"Raz\. Social\.\.\:\s*(.+)", texto)
+                        if m_cliente:
+                            cliente = m_cliente.group(1).split("Email")[0].strip()
+
+                    # TABELAS
                     tabelas = page.extract_tables()
 
                     if not tabelas:
@@ -1289,15 +1297,19 @@ def importar_pdf():
 
                     for tabela in tabelas:
 
+                        if not tabela:
+                            continue
+
                         for linha in tabela:
 
-                            if not linha:
+                            if not linha or len(linha) < 7:
                                 continue
 
                             try:
 
-                                # Linha válida começa com código numérico
-                                if not linha[0] or not str(linha[0]).isdigit():
+                                codigo = str(linha[0]).strip()
+
+                                if not codigo.isdigit():
                                     continue
 
                                 produto = str(linha[1]).strip()
@@ -1306,64 +1318,47 @@ def importar_pdf():
                                 valor = float(str(linha[5]).replace(".", "").replace(",", "."))
                                 total_item = float(str(linha[6]).replace(".", "").replace(",", "."))
 
-                                # VALIDAÇÃO FORTE
                                 if qtd <= 0 or valor <= 0:
                                     continue
 
                                 itens.append((produto, qtd, valor, total_item))
-
                                 valor_total += total_item
 
                             except:
                                 continue
 
-                # ================= CLIENTE =================
-                m_cliente = re.search(r"\d+\s-\s(.+?)\s\d{10,}", texto_total)
-                if m_cliente:
-                    cliente = m_cliente.group(1).strip()
+            if not itens:
+                continue
 
-                # ================= DATA =================
-                m_data = re.search(r"Data Neg\.\:\s*(\d{2}/\d{2}/\d{4})", texto_total)
-                if m_data:
-                    data_venda = datetime.strptime(
-                        m_data.group(1), "%d/%m/%Y"
-                    ).strftime("%Y-%m-%d")
+            # NÃO DUPLICAR
+            c.execute("""
+                SELECT id FROM vendas
+                WHERE cliente=? AND data=? AND valor_total=? AND id_usuario=?
+            """, (cliente, data_venda, valor_total, id_usuario))
 
-                primeiro_mes = data_venda[:7]
+            if c.fetchone():
+                continue
 
-                if not itens:
-                    continue
+            c.execute("""
+                INSERT INTO vendas
+                (data, cliente, valor_total, comissao_total, parcelas, primeiro_mes, id_usuario)
+                VALUES (?, ?, ?, 0, 1, ?, ?)
+            """, (data_venda, cliente, valor_total, primeiro_mes, id_usuario))
 
-                # ================= NÃO DUPLICAR =================
+            id_venda = c.lastrowid
+
+            for item in itens:
+
                 c.execute("""
-                    SELECT id FROM vendas
-                    WHERE cliente=? AND data=? AND valor_total=? AND id_usuario=?
-                """, (cliente, data_venda, valor_total, id_usuario))
+                    INSERT INTO itens_venda
+                    (id_venda, produto, quantidade, valor_unitario, total_item)
+                    VALUES (?, ?, ?, ?, ?)
+                """, (id_venda, item[0], item[1], item[2], item[3]))
 
-                if c.fetchone():
-                    continue
-
-                # ================= INSERE VENDA =================
                 c.execute("""
-                    INSERT INTO vendas
-                    (data, cliente, valor_total, comissao_total, parcelas, primeiro_mes, id_usuario)
-                    VALUES (?, ?, ?, 0, 1, ?, ?)
-                """, (data_venda, cliente, valor_total, primeiro_mes, id_usuario))
-
-                id_venda = c.lastrowid
-
-                for item in itens:
-
-                    c.execute("""
-                        INSERT INTO itens_venda
-                        (id_venda, produto, quantidade, valor_unitario, total_item)
-                        VALUES (?, ?, ?, ?, ?)
-                    """, (id_venda, item[0], item[1], item[2], item[3]))
-
-                    c.execute("""
-                        DELETE FROM alertas_controle
-                        WHERE cliente=? AND produto=? AND id_usuario=?
-                    """, (cliente, item[0], id_usuario))
+                    DELETE FROM alertas_controle
+                    WHERE cliente=? AND produto=? AND id_usuario=?
+                """, (cliente, item[0], id_usuario))
 
         conn.commit()
         conn.close()
@@ -1371,7 +1366,6 @@ def importar_pdf():
         return redirect("/vendas")
 
     return render_template("importar_pdf.html")
-
 
 
 
@@ -1431,6 +1425,7 @@ def admin_deletar_usuario(id):
 
 # ================= START =================
 criar_banco()
+
 
 
 
