@@ -1271,16 +1271,14 @@ def importar_pdf():
                     if t:
                         texto += t + "\n"
 
-            # ================= CLIENTE =================
+            # CLIENTE
             cliente = "CLIENTE PDF"
-
             m_cliente = re.search(r"Raz\. Social\.\.\:\s*(.+)", texto)
             if m_cliente:
                 cliente = m_cliente.group(1).split("Email")[0].strip()
 
-            # ================= DATA =================
+            # DATA
             data_venda = datetime.now().strftime("%Y-%m-%d")
-
             m_data = re.search(r"Data Neg\.\:\s*(\d{2}/\d{2}/\d{4})", texto)
             if m_data:
                 data_venda = datetime.strptime(
@@ -1289,7 +1287,7 @@ def importar_pdf():
 
             primeiro_mes = data_venda[:7]
 
-            # ================= PRODUTOS =================
+            # PRODUTOS
             itens = []
             valor_total = 0
 
@@ -1299,54 +1297,41 @@ def importar_pdf():
 
                 l = l.strip()
 
-                # começa com código numérico
-                if not re.match(r"^\d+\s", l):
+                # começa com número
+                if len(l) < 5:
                     continue
 
-                if "BL" not in l:
+                if not l[:4].strip().isdigit():
+                    continue
+
+                if " BL " not in l and " BL" not in l:
+                    continue
+
+                partes = l.split()
+
+                # proteção contra linha fora do padrão
+                if len(partes) < 10:
                     continue
 
                 try:
-
-                    # extrair todos valores monetários da linha
-                    valores = re.findall(r"\d+\.\d{3},\d{2}", l)
-
-                    if len(valores) < 2:
-                        continue
-
-                    # quantidade normalmente é número simples antes do primeiro valor monetário
-                    partes = l.split("BL")
-                    if len(partes) < 2:
-                        continue
-
-                    apos_bl = partes[1].strip()
-
-                    numeros = re.findall(r"\d+[.,]?\d*", apos_bl)
-
-                    if len(numeros) < 3:
-                        continue
-
-                    qtd = float(numeros[0].replace(",", "."))
-                    valor = float(valores[0].replace(".", "").replace(",", "."))
-                    total_item = float(valores[1].replace(".", "").replace(",", "."))
-
-                    # descrição = tudo entre código e BL
-                    descricao = re.split(r"\sBL\s?", l)[0]
-                    produto = " ".join(descricao.split()[1:]).strip()
-
-                    if qtd <= 0 or valor <= 0:
-                        continue
-
-                    itens.append((produto, qtd, valor, total_item))
-                    valor_total += total_item
-
+                    qtd = float(partes[-8].replace(",", "."))
+                    valor = float(partes[-7].replace(".", "").replace(",", "."))
+                    total_item = float(partes[-6].replace(".", "").replace(",", "."))
                 except:
                     continue
+
+                produto = " ".join(partes[1:-8])
+
+                if qtd <= 0 or valor <= 0:
+                    continue
+
+                itens.append((produto, qtd, valor, total_item))
+                valor_total += total_item
 
             if not itens:
                 continue
 
-            # ================= NÃO DUPLICAR =================
+            # NÃO DUPLICAR
             c.execute("""
                 SELECT id FROM vendas
                 WHERE cliente=? AND data=? AND valor_total=? AND id_usuario=?
@@ -1355,7 +1340,6 @@ def importar_pdf():
             if c.fetchone():
                 continue
 
-            # ================= INSERE VENDA =================
             c.execute("""
                 INSERT INTO vendas
                 (data, cliente, valor_total, comissao_total, parcelas, primeiro_mes, id_usuario)
@@ -1365,17 +1349,11 @@ def importar_pdf():
             id_venda = c.lastrowid
 
             for item in itens:
-
                 c.execute("""
                     INSERT INTO itens_venda
                     (id_venda, produto, quantidade, valor_unitario, total_item)
                     VALUES (?, ?, ?, ?, ?)
                 """, (id_venda, item[0], item[1], item[2], item[3]))
-
-                c.execute("""
-                    DELETE FROM alertas_controle
-                    WHERE cliente=? AND produto=? AND id_usuario=?
-                """, (cliente, item[0], id_usuario))
 
         conn.commit()
         conn.close()
@@ -1441,6 +1419,7 @@ def admin_deletar_usuario(id):
 
 # ================= START =================
 criar_banco()
+
 
 
 
