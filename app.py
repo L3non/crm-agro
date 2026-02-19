@@ -1263,82 +1263,58 @@ def importar_pdf():
 
         for arquivo in arquivos:
 
-            if not arquivo:
-                continue
-
-            cliente = "CLIENTE PDF"
-            itens = []
-            valor_total = 0
-            data_venda = datetime.now().strftime("%Y-%m-%d")
-
             texto = ""
-            tabelas = []
 
             with pdfplumber.open(arquivo) as pdf:
-
                 for page in pdf.pages:
-
                     t = page.extract_text()
                     if t:
                         texto += t + "\n"
 
-                    tables = page.extract_tables()
-                    if tables:
-                        tabelas.extend(tables)
-
             # ================= CLIENTE =================
-            m_cliente = re.search(r"Parceiro.*?:\s*\d+\s+([^\n]+)", texto)
+            cliente = "CLIENTE PDF"
+            m_cliente = re.search(r"Parceiro.*?:\s*\d+\s+(.+)", texto)
             if m_cliente:
-                cliente = m_cliente.group(1).strip()
+                cliente = m_cliente.group(1).split("Fone")[0].replace("-", "").strip()
 
-            # ================= DATA NEG =================
+            # ================= DATA =================
+            data_venda = datetime.now().strftime("%Y-%m-%d")
             m_data = re.search(r"Data Neg.*?:\s*(\d{2}/\d{2}/\d{4})", texto)
             if m_data:
-                data_venda = datetime.strptime(
-                    m_data.group(1), "%d/%m/%Y"
-                ).strftime("%Y-%m-%d")
+                data_venda = datetime.strptime(m_data.group(1), "%d/%m/%Y").strftime("%Y-%m-%d")
 
             primeiro_mes = data_venda[:7]
 
-            # ================= PRODUTOS (TABELA REAL) =================
-            for tabela in tabelas:
+            # ================= PRODUTOS =================
+            itens = []
+            valor_total = 0
 
-                for linha in tabela:
+            linhas = texto.split("\n")
 
-                    if not linha:
-                        continue
+            for l in linhas:
 
-                    # precisa ter colunas suficientes
-                    if len(linha) < 6:
-                        continue
+                if "BL" not in l:
+                    continue
 
-                    try:
+                partes = l.split()
 
-                        produto = str(linha[1]).strip()
+                try:
+                    qtd = float(partes[-5].replace(",", "."))
+                    valor = float(partes[-4].replace(".", "").replace(",", "."))
+                    total_item = float(partes[-3].replace(".", "").replace(",", "."))
+                except:
+                    continue
 
-                        qtd = float(
-                            str(linha[3]).replace(".", "").replace(",", ".")
-                        )
+                produto = " ".join(partes[1:-5])
 
-                        valor = float(
-                            str(linha[4]).replace(".", "").replace(",", ".")
-                        )
+                valor_total += total_item
 
-                        total_item = float(
-                            str(linha[-1]).replace(".", "").replace(",", ".")
-                        )
-
-                        valor_total += total_item
-
-                        itens.append((produto, qtd, valor, total_item))
-
-                    except:
-                        continue
+                itens.append((produto, qtd, valor, total_item))
 
             if not itens:
                 continue
 
-            # ================= NÃO DUPLICAR =================
+            # NÃO DUPLICAR
             c.execute("""
                 SELECT id FROM vendas
                 WHERE cliente=? AND data=? AND valor_total=? AND id_usuario=?
@@ -1347,7 +1323,6 @@ def importar_pdf():
             if c.fetchone():
                 continue
 
-            # ================= INSERIR VENDA =================
             c.execute("""
                 INSERT INTO vendas
                 (data, cliente, valor_total, comissao_total, parcelas, primeiro_mes, id_usuario)
@@ -1375,10 +1350,6 @@ def importar_pdf():
         return redirect("/vendas")
 
     return render_template("importar_pdf.html")
-
-
-
-
 
 
 
@@ -1438,6 +1409,7 @@ def admin_deletar_usuario(id):
 
 # ================= START =================
 criar_banco()
+
 
 
 
