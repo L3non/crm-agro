@@ -1263,74 +1263,77 @@ def importar_pdf():
 
         for arquivo in arquivos:
 
+            texto = ""
+
+            with pdfplumber.open(arquivo) as pdf:
+                for page in pdf.pages:
+                    t = page.extract_text()
+                    if t:
+                        texto += t + "\n"
+
+            # ================= CLIENTE =================
             cliente = "CLIENTE PDF"
+
+            m_cliente = re.search(r"Raz\. Social\.\.\:\s*(.+)", texto)
+            if m_cliente:
+                cliente = m_cliente.group(1).split("Email")[0].strip()
+
+            # ================= DATA =================
             data_venda = datetime.now().strftime("%Y-%m-%d")
+
+            m_data = re.search(r"Data Neg\.\:\s*(\d{2}/\d{2}/\d{4})", texto)
+            if m_data:
+                data_venda = datetime.strptime(
+                    m_data.group(1), "%d/%m/%Y"
+                ).strftime("%Y-%m-%d")
+
             primeiro_mes = data_venda[:7]
 
+            # ================= PRODUTOS =================
             itens = []
             valor_total = 0
 
-            with pdfplumber.open(arquivo) as pdf:
+            linhas = texto.split("\n")
 
-                for page in pdf.pages:
+            for l in linhas:
 
-                    # TEXTO (cliente + data)
-                    texto = page.extract_text() or ""
+                l = l.strip()
 
-                    if "Data Neg." in texto:
-                        m_data = re.search(r"Data Neg\.\:\s*(\d{2}/\d{2}/\d{4})", texto)
-                        if m_data:
-                            data_venda = datetime.strptime(
-                                m_data.group(1), "%d/%m/%Y"
-                            ).strftime("%Y-%m-%d")
+                # linha de produto começa com código
+                if not re.match(r"^\d+\s", l):
+                    continue
 
-                    if "Raz. Social" in texto:
-                        m_cliente = re.search(r"Raz\. Social\.\.\:\s*(.+)", texto)
-                        if m_cliente:
-                            cliente = m_cliente.group(1).split("Email")[0].strip()
+                # unidade padrão do PDF
+                if " BL " not in l:
+                    continue
 
-                    # TABELAS
-                    tabelas = page.extract_tables()
+                try:
 
-                    if not tabelas:
+                    partes = re.split(r"\s{1,}", l)
+
+                    codigo = partes[0]
+
+                    # posições fixas nesse layout
+                    qtd = float(partes[-8].replace(",", "."))
+                    valor = float(partes[-7].replace(".", "").replace(",", "."))
+                    total_item = float(partes[-6].replace(".", "").replace(",", "."))
+
+                    produto = " ".join(partes[1:-8])
+
+                    # validação forte
+                    if qtd <= 0 or valor <= 0:
                         continue
 
-                    for tabela in tabelas:
+                    itens.append((produto, qtd, valor, total_item))
+                    valor_total += total_item
 
-                        if not tabela:
-                            continue
-
-                        for linha in tabela:
-
-                            if not linha or len(linha) < 7:
-                                continue
-
-                            try:
-
-                                codigo = str(linha[0]).strip()
-
-                                if not codigo.isdigit():
-                                    continue
-
-                                produto = str(linha[1]).strip()
-
-                                qtd = float(str(linha[4]).replace(",", "."))
-                                valor = float(str(linha[5]).replace(".", "").replace(",", "."))
-                                total_item = float(str(linha[6]).replace(".", "").replace(",", "."))
-
-                                if qtd <= 0 or valor <= 0:
-                                    continue
-
-                                itens.append((produto, qtd, valor, total_item))
-                                valor_total += total_item
-
-                            except:
-                                continue
+                except:
+                    continue
 
             if not itens:
                 continue
 
-            # NÃO DUPLICAR
+            # ================= NÃO DUPLICAR =================
             c.execute("""
                 SELECT id FROM vendas
                 WHERE cliente=? AND data=? AND valor_total=? AND id_usuario=?
@@ -1339,6 +1342,7 @@ def importar_pdf():
             if c.fetchone():
                 continue
 
+            # ================= INSERE VENDA =================
             c.execute("""
                 INSERT INTO vendas
                 (data, cliente, valor_total, comissao_total, parcelas, primeiro_mes, id_usuario)
@@ -1366,8 +1370,6 @@ def importar_pdf():
         return redirect("/vendas")
 
     return render_template("importar_pdf.html")
-
-
 
 
 
@@ -1425,6 +1427,7 @@ def admin_deletar_usuario(id):
 
 # ================= START =================
 criar_banco()
+
 
 
 
