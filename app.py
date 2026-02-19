@@ -1250,13 +1250,12 @@ def importar_pdf():
 
     id_usuario = session["id_usuario"]
 
-    # GET apenas abre a página (SEM PROCESSAMENTO)
+    # GET apenas abre a página
     if request.method == "GET":
         return render_template("importar_pdf.html")
 
-    # ================= POST =================
+    # POST começa aqui
 
-    # proteção contra arquivo muito grande (evita 502)
     if request.content_length and request.content_length > 3 * 1024 * 1024:
         return "Arquivo muito grande (máx 3MB)", 400
 
@@ -1267,30 +1266,29 @@ def importar_pdf():
 
     for arquivo in arquivos:
 
-        try:
+        texto = ""
 
-            # 🔥 leitura leve (somente primeira página)
+        try:
             with pdfplumber.open(arquivo) as pdf:
-                if not pdf.pages:
+                if len(pdf.pages) == 0:
                     continue
 
                 page = pdf.pages[0]
                 texto = page.extract_text() or ""
 
-        except:
+        except Exception as e:
+            print("ERRO PDF:", e)
             continue
 
         if not texto:
             continue
 
-        # ================= CLIENTE =================
         cliente = "CLIENTE PDF"
 
         m_cliente = re.search(r"Raz\. Social\.\.\:\s*(.+)", texto)
         if m_cliente:
             cliente = m_cliente.group(1).split("Email")[0].strip()
 
-        # ================= DATA =================
         data_venda = datetime.now().strftime("%Y-%m-%d")
 
         m_data = re.search(r"Data Neg\.\:\s*(\d{2}/\d{2}/\d{4})", texto)
@@ -1301,7 +1299,6 @@ def importar_pdf():
 
         primeiro_mes = data_venda[:7]
 
-        # ================= PRODUTOS =================
         itens = []
         valor_total = 0
 
@@ -1314,7 +1311,6 @@ def importar_pdf():
             if len(l) < 5:
                 continue
 
-            # linha começa com código numérico
             if not l[:4].strip().isdigit():
                 continue
 
@@ -1344,7 +1340,6 @@ def importar_pdf():
         if not itens:
             continue
 
-        # ================= NÃO DUPLICAR =================
         c.execute("""
             SELECT id FROM vendas
             WHERE cliente=? AND data=? AND valor_total=? AND id_usuario=?
@@ -1353,7 +1348,6 @@ def importar_pdf():
         if c.fetchone():
             continue
 
-        # ================= INSERE VENDA =================
         c.execute("""
             INSERT INTO vendas
             (data, cliente, valor_total, comissao_total, parcelas, primeiro_mes, id_usuario)
@@ -1433,6 +1427,7 @@ def admin_deletar_usuario(id):
 
 # ================= START =================
 criar_banco()
+
 
 
 
