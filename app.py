@@ -1247,7 +1247,7 @@ def importar_pdf():
     if not session.get("logado"):
         return redirect("/")
 
-    id_usuario = session["id_usuario"]  # 🔒 usuário logado
+    id_usuario = session["id_usuario"]
 
     if request.method == "POST":
         import pdfplumber
@@ -1270,45 +1270,54 @@ def importar_pdf():
             for page in pdf.pages:
                 texto += page.extract_text() + "\n"
 
-        # ================= PEGAR CLIENTE =================
-        m_cliente = re.search(r"Raz\. Social\.*:\s*(.+)", texto)
+        # CLIENTE
+        m_cliente = re.search(r"Raz\. Social.*:\s*(.+)", texto)
         if m_cliente:
             cliente = m_cliente.group(1).strip()
 
-        # REMOVER EMAIL DO NOME
         cliente = re.sub(r"Email.*", "", cliente).strip()
 
-        # ================= PEGAR NOTA =================
-        m_nota = re.search(r"N°\s*Único:\s*(\d+)", texto)
+        # NOTA
+        m_nota = re.search(r"N[°º]\s*Único[:\s]*(\d+)", texto)
         if m_nota:
             nota = m_nota.group(1)
 
-        # ================= PEGAR PRODUTOS =================
+        # PRODUTOS (NOVO MÉTODO ROBUSTO)
         linhas = texto.split("\n")
+
         for l in linhas:
-            m = re.match(r"^\d+\s+(.+?)\s+\w+\s+([\d,]+)\s+([\d,]+)\s+([\d.,]+)", l)
-            if m:
-                produto = m.group(1).strip()
+            if not re.match(r"^\d+\s", l):
+                continue
 
-                # ✅ REMOVER CONTROLE (ex: 104/25, 031/24, 012/25) DO FINAL
-                produto = re.sub(r'\s+\d{2,3}/\d{2}$', '', produto).strip()
+            numeros = re.findall(r"\d[\d.,]*", l)
 
-                qtd = float(m.group(2).replace(".", "").replace(",", "."))
-                valor = float(m.group(3).replace(".", "").replace(",", "."))
+            if len(numeros) < 3:
+                continue
 
-                total = qtd * valor
-                valor_total += total
-                itens.append((produto, qtd, valor, total))
+            try:
+                qtd = float(numeros[-3].replace(".", "").replace(",", "."))
+                valor = float(numeros[-2].replace(".", "").replace(",", "."))
+            except:
+                continue
 
-        # 🔒 NÃO DUPLICAR NOTA (POR USUÁRIO)
+            produto = re.sub(r"^\d+\s+", "", l)
+
+            produto = re.sub(r"\s+\d[\d.,]*\s+\d[\d.,]*.*$", "", produto).strip()
+
+            total = qtd * valor
+            valor_total += total
+            itens.append((produto, qtd, valor, total))
+
+        # NÃO DUPLICAR
         c.execute("""
             SELECT id FROM vendas 
             WHERE cliente=? AND data=? AND valor_total=? AND id_usuario=?
         """, (cliente, data_venda, valor_total, id_usuario))
+
         if c.fetchone():
             return "❌ PDF JÁ IMPORTADO"
 
-        # INSERIR VENDA (🔒 COM USUÁRIO)
+        # INSERIR VENDA
         c.execute("""
             INSERT INTO vendas (data, cliente, valor_total, comissao_total, parcelas, primeiro_mes, id_usuario)
             VALUES (?, ?, ?, 0, 1, ?, ?)
@@ -1316,14 +1325,12 @@ def importar_pdf():
 
         id_venda = c.lastrowid
 
-        # INSERIR ITENS
         for p in itens:
             c.execute("""
                 INSERT INTO itens_venda (id_venda, produto, quantidade, valor_unitario, total_item)
                 VALUES (?, ?, ?, ?, ?)
             """, (id_venda, p[0], p[1], p[2], p[3]))
 
-            # 🔒 REATIVAR ALERTAS SÓ DO USUÁRIO
             c.execute("""
                 DELETE FROM alertas_controle WHERE cliente=? AND produto=? AND id_usuario=?
             """, (cliente, p[0], id_usuario))
@@ -1334,6 +1341,7 @@ def importar_pdf():
         return redirect(f"/venda/{id_venda}")
 
     return render_template("importar_pdf.html")
+
 
 # ================= ADMIN USUÁRIOS =================
 @app.route("/admin_usuarios", methods=["GET", "POST"])
@@ -1389,6 +1397,7 @@ def admin_deletar_usuario(id):
 
 # ================= START =================
 criar_banco()
+
 
 
 
