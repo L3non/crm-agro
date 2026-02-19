@@ -1266,7 +1266,6 @@ def importar_pdf():
             itens = []
             valor_total = 0
             cliente = "CLIENTE PDF"
-            nota = None
             data_venda = datetime.now().strftime("%Y-%m-%d")
 
             # ================= LER PDF =================
@@ -1278,22 +1277,17 @@ def importar_pdf():
                         texto += t + "\n"
 
             # ================= CLIENTE =================
-            m_cliente = re.search(r"Parceiro\.*:\s*\d+\s+([^\n]+)", texto)
+            m_cliente = re.search(r"Parceiro.*?:\s*\d+\s+([^\n]+)", texto)
             if m_cliente:
                 cliente = m_cliente.group(1).strip()
 
             # ================= DATA NEG =================
-            m_data = re.search(r"Data Neg\.*:\s*(\d{2}/\d{2}/\d{4})", texto)
+            m_data = re.search(r"Data Neg.*?:\s*(\d{2}/\d{2}/\d{4})", texto)
             if m_data:
                 d = m_data.group(1)
                 data_venda = datetime.strptime(d, "%d/%m/%Y").strftime("%Y-%m-%d")
 
             primeiro_mes = data_venda[:7]
-
-            # ================= NOTA (ANTI DUPLICAÇÃO REAL) =================
-            m_nota = re.search(r"N[°º]\s*Único:\s*(\d+)", texto)
-            if m_nota:
-                nota = m_nota.group(1)
 
             # ================= TOTAL =================
             m_total = re.search(r"Valor\s+([\d\.,]+)\s*$", texto, re.MULTILINE)
@@ -1327,29 +1321,21 @@ def importar_pdf():
             if not itens:
                 continue
 
-            # ================= NÃO DUPLICAR =================
-            if nota:
-                c.execute("""
-                    SELECT id FROM vendas 
-                    WHERE cliente=? AND data=? AND id_usuario=? AND observacao=?
-                """, (cliente, data_venda, id_usuario, nota))
-                if c.fetchone():
-                    continue
+            # 🔒 NÃO DUPLICAR
+            c.execute("""
+                SELECT id FROM vendas 
+                WHERE cliente=? AND data=? AND valor_total=? AND id_usuario=?
+            """, (cliente, data_venda, valor_total, id_usuario))
 
-            else:
-                c.execute("""
-                    SELECT id FROM vendas 
-                    WHERE cliente=? AND data=? AND valor_total=? AND id_usuario=?
-                """, (cliente, data_venda, valor_total, id_usuario))
-                if c.fetchone():
-                    continue
+            if c.fetchone():
+                continue
 
             # ================= INSERIR VENDA =================
             c.execute("""
                 INSERT INTO vendas
-                (data, cliente, valor_total, comissao_total, parcelas, primeiro_mes, id_usuario, observacao)
-                VALUES (?, ?, ?, 0, 1, ?, ?, ?)
-            """, (data_venda, cliente, valor_total, primeiro_mes, id_usuario, nota))
+                (data, cliente, valor_total, comissao_total, parcelas, primeiro_mes, id_usuario)
+                VALUES (?, ?, ?, 0, 1, ?, ?)
+            """, (data_venda, cliente, valor_total, primeiro_mes, id_usuario))
 
             id_venda = c.lastrowid
 
@@ -1431,6 +1417,7 @@ def admin_deletar_usuario(id):
 
 # ================= START =================
 criar_banco()
+
 
 
 
