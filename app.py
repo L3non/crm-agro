@@ -1308,19 +1308,7 @@ def importar_pdf():
         itens = []
         valor_total = 0
 
-        linhas = texto.split("\n")
-
-
-
-
-print("========== DEBUG PDF ==========")
-for linha in linhas:
-    print(linha)
-
-
-
-
-        
+        linhas = texto.split("\n")       
 
         for l in linhas:
 
@@ -1446,6 +1434,7 @@ def admin_deletar_usuario(id):
 
 # ================= START =================
 criar_banco()
+
 
 
 
