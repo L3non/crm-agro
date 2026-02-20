@@ -1257,8 +1257,8 @@ def importar_pdf():
     if request.method == "GET":
         return render_template("importar_pdf.html")
 
-    if request.content_length and request.content_length > 3 * 1024 * 1024:
-        return "Arquivo muito grande (máx 3MB)", 400
+    if request.content_length and request.content_length > 5 * 1024 * 1024:
+        return "Arquivo muito grande", 400
 
     arquivos = request.files.getlist("arquivo")
 
@@ -1280,6 +1280,22 @@ def importar_pdf():
             continue
 
         if not texto:
+            continue
+
+        # ================= NUMERO UNICO =================
+        m_num = re.search(r"N[ºo]?\s*Unico\s*(\d+)", texto, re.IGNORECASE)
+        numero_unico = m_num.group(1) if m_num else None
+
+        if not numero_unico:
+            continue
+
+        # ================= NÃO DUPLICAR =================
+        c.execute("""
+            SELECT id FROM vendas
+            WHERE numero_unico=? AND id_usuario=?
+        """, (numero_unico, id_usuario))
+
+        if c.fetchone():
             continue
 
         # ================= CLIENTE =================
@@ -1310,32 +1326,26 @@ def importar_pdf():
 
             l = l.strip()
 
-            # linha de produto começa com número
+            # linha precisa começar com código numérico
             if not re.match(r"^\d+\s", l):
                 continue
 
-            if " BL " not in l:
-                continue
+            partes = l.split()
 
-            # exemplo:
-            # 4003 BRA TRICLOPIR ( TRYTOR ) 20LT BL 2 1.200,00 2.400,00 ...
+            # precisa ter pelo menos qtd + valores
+            if len(partes) < 6:
+                continue
 
             try:
 
-                partes = l.split(" BL ")
+                codigo = partes[0]
 
-                antes_bl = partes[0].strip()
-                depois_bl = partes[1].strip()
+                # últimos valores são:
+                qtd = float(partes[-10].replace(",", "."))
+                valor = float(partes[-9].replace(".", "").replace(",", "."))
+                total_item = float(partes[-1].replace(".", "").replace(",", "."))
 
-                codigo_desc = antes_bl.split(" ", 1)
-                codigo = codigo_desc[0]
-                produto = codigo_desc[1]
-
-                numeros = depois_bl.split()
-
-                qtd = float(numeros[0].replace(",", "."))
-                valor = float(numeros[1].replace(".", "").replace(",", "."))
-                total_item = float(numeros[2].replace(".", "").replace(",", "."))
+                produto = " ".join(partes[1:-10]).strip()
 
             except:
                 continue
@@ -1349,21 +1359,12 @@ def importar_pdf():
         if not itens:
             continue
 
-        # ================= NÃO DUPLICAR =================
-        c.execute("""
-            SELECT id FROM vendas
-            WHERE cliente=? AND data=? AND valor_total=? AND id_usuario=?
-        """, (cliente, data_venda, valor_total, id_usuario))
-
-        if c.fetchone():
-            continue
-
         # ================= INSERE VENDA =================
         c.execute("""
             INSERT INTO vendas
-            (data, cliente, valor_total, comissao_total, parcelas, primeiro_mes, id_usuario)
-            VALUES (?, ?, ?, 0, 1, ?, ?)
-        """, (data_venda, cliente, valor_total, primeiro_mes, id_usuario))
+            (data, cliente, valor_total, comissao_total, parcelas, primeiro_mes, id_usuario, numero_unico)
+            VALUES (?, ?, ?, 0, 1, ?, ?, ?)
+        """, (data_venda, cliente, valor_total, primeiro_mes, id_usuario, numero_unico))
 
         id_venda = c.lastrowid
 
@@ -1436,6 +1437,7 @@ def admin_deletar_usuario(id):
 
 # ================= START =================
 criar_banco()
+
 
 
 
