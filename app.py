@@ -1273,18 +1273,26 @@ def importar_pdf():
 
         try:
             with pdfplumber.open(arquivo) as pdf:
+
                 if not pdf.pages:
                     continue
 
                 page = pdf.pages[0]
+
+                # texto apenas para cliente/data
                 texto = page.extract_text() or ""
+
+                # 🔥 tabela real do PDF
+                tabelas = page.extract_tables()
 
         except Exception as e:
             print("ERRO PDF:", e)
             continue
 
-        if not texto:
+        if not tabelas:
             continue
+
+        tabela = tabelas[0]
 
         # ================= CLIENTE =================
         cliente = "CLIENTE PDF"
@@ -1308,38 +1316,31 @@ def importar_pdf():
         itens = []
         valor_total = 0
 
-        linhas = texto.split("\n")       
+        for linha in tabela:
 
-        for l in linhas:
-
-            l = l.strip()
-
-            # detectar linha de produto pelo padrão BL
-            if " BL " not in l:
+            if not linha:
                 continue
 
-            # linha precisa começar com número (aceita espaços antes)
-            if not re.match(r"^\s*\d+", l):
-                continue
+            # remove None
+            linha = [str(c).strip() if c else "" for c in linha]
 
-            partes = l.split()
+            linha_texto = " ".join(linha)
 
-            # proteção contra linha fora do padrão
-            if len(partes) < 10:
+            if "BL" not in linha_texto:
                 continue
 
             try:
-                # posições típicas do layout HASS
-                qtd = float(partes[-8].replace(",", "."))
-                valor = float(partes[-7].replace(".", "").replace(",", "."))
-                total_item = float(partes[-6].replace(".", "").replace(",", "."))
+                # ajuste conforme layout típico
+                codigo = linha[0]
+                produto = linha[1]
+                qtd = float(linha[2].replace(",", "."))
+                valor = float(linha[3].replace(".", "").replace(",", "."))
+                total_item = float(linha[4].replace(".", "").replace(",", "."))
             except:
                 continue
 
             if qtd <= 0 or valor <= 0:
                 continue
-
-            produto = " ".join(partes[1:-8]).strip()
 
             itens.append((produto, qtd, valor, total_item))
             valor_total += total_item
@@ -1434,6 +1435,7 @@ def admin_deletar_usuario(id):
 
 # ================= START =================
 criar_banco()
+
 
 
 
