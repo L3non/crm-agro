@@ -1,13 +1,30 @@
 <!DOCTYPE html>
 <html>
+<head>
+    <meta charset="UTF-8">
+    <title>Importar Vendas PDF</title>
+</head>
+
 <body>
-<h2>📥 Importar Venda PDF</h2>
+
+<h2>📥 Importar Vendas em PDF (HASS E ARRUDA)</h2>
 
 <form method="post" enctype="multipart/form-data">
-    <input type="file" name="arquivo" required>
-    <button type="submit">Importar PDF</button>
+
+    <p>Selecione um ou vários arquivos PDF:</p>
+
+    <!-- 🔥 AGORA ACEITA MÚLTIPLOS -->
+    <input type="file" name="arquivo" accept=".pdf" multiple required>
+
+    <br><br>
+
+    <button type="submit">🚀 Importar PDFs</button>
+
 </form>
 
-<a href="/vendas">Voltar</a>
+<br>
+
+<a href="/vendas">⬅ Voltar para vendas</a>
+
 </body>
 </html>
