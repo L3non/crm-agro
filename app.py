@@ -1314,6 +1314,14 @@ def importar_pdf():
 
 
 
+print("========== DEBUG PDF ==========")
+for linha in linhas:
+    print(linha)
+print("================================")
+
+
+
+
 
         
 
@@ -1386,14 +1394,6 @@ def importar_pdf():
 
 
 
-print("========== DEBUG PDF ==========")
-for linha in linhas:
-    print(linha)
-print("================================")
-
-
-
-
 
 # ================= ADMIN USUÁRIOS =================
 @app.route("/admin_usuarios", methods=["GET", "POST"])
@@ -1449,6 +1449,7 @@ def admin_deletar_usuario(id):
 
 # ================= START =================
 criar_banco()
+
 
 
 
