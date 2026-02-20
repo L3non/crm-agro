@@ -1240,7 +1240,6 @@ def importar_vendas():
     return render_template("importar_vendas.html")
 
 
-
 # ================= IMPORTADOR PDF HASS E ARRUDA =================
 @app.route("/importar_pdf", methods=["GET", "POST"])
 def importar_pdf():
@@ -1267,6 +1266,24 @@ def importar_pdf():
 
     for arquivo in arquivos:
 
+        nome_arquivo = arquivo.filename
+
+        # 🔥 numero unico pelo nome do arquivo
+        m_num = re.search(r"PEDIDO_VENDA_(\d+)", nome_arquivo)
+        numero_unico = m_num.group(1) if m_num else None
+
+        if not numero_unico:
+            continue
+
+        # anti duplicação usando numero do arquivo
+        c.execute("""
+            SELECT id FROM vendas
+            WHERE observacao=? AND id_usuario=?
+        """, (numero_unico, id_usuario))
+
+        if c.fetchone():
+            continue
+
         try:
             with pdfplumber.open(arquivo) as pdf:
                 if not pdf.pages:
@@ -1282,30 +1299,14 @@ def importar_pdf():
         if not texto:
             continue
 
-        # ================= NUMERO UNICO =================
-        m_num = re.search(r"N[ºo]?\s*Unico\s*(\d+)", texto, re.IGNORECASE)
-        numero_unico = m_num.group(1) if m_num else None
-
-        if not numero_unico:
-            continue
-
-        # ================= NÃO DUPLICAR =================
-        c.execute("""
-            SELECT id FROM vendas
-            WHERE numero_unico=? AND id_usuario=?
-        """, (numero_unico, id_usuario))
-
-        if c.fetchone():
-            continue
-
-        # ================= CLIENTE =================
+        # CLIENTE
         cliente = "CLIENTE PDF"
 
         m_cliente = re.search(r"Parceiro\.\.\:\s*\d+\s*-\s*(.+?)\s*Fone", texto)
         if m_cliente:
             cliente = m_cliente.group(1).strip()
 
-        # ================= DATA =================
+        # DATA
         data_venda = datetime.now().strftime("%Y-%m-%d")
 
         m_data = re.search(r"Data Neg\.\:\s*(\d{2}/\d{2}/\d{4})", texto)
@@ -1316,7 +1317,6 @@ def importar_pdf():
 
         primeiro_mes = data_venda[:7]
 
-        # ================= PRODUTOS =================
         itens = []
         valor_total = 0
 
@@ -1326,21 +1326,15 @@ def importar_pdf():
 
             l = l.strip()
 
-            # linha precisa começar com código numérico
             if not re.match(r"^\d+\s", l):
                 continue
 
             partes = l.split()
 
-            # precisa ter pelo menos qtd + valores
             if len(partes) < 6:
                 continue
 
             try:
-
-                codigo = partes[0]
-
-                # últimos valores são:
                 qtd = float(partes[-10].replace(",", "."))
                 valor = float(partes[-9].replace(".", "").replace(",", "."))
                 total_item = float(partes[-1].replace(".", "").replace(",", "."))
@@ -1359,10 +1353,9 @@ def importar_pdf():
         if not itens:
             continue
 
-        # ================= INSERE VENDA =================
         c.execute("""
             INSERT INTO vendas
-            (data, cliente, valor_total, comissao_total, parcelas, primeiro_mes, id_usuario, numero_unico)
+            (data, cliente, valor_total, comissao_total, parcelas, primeiro_mes, id_usuario, observacao)
             VALUES (?, ?, ?, 0, 1, ?, ?, ?)
         """, (data_venda, cliente, valor_total, primeiro_mes, id_usuario, numero_unico))
 
@@ -1437,6 +1430,7 @@ def admin_deletar_usuario(id):
 
 # ================= START =================
 criar_banco()
+
 
 
 
