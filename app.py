@@ -1313,12 +1313,9 @@ def importar_pdf():
 
 
 
-
 print("========== DEBUG PDF ==========")
 for linha in linhas:
     print(linha)
-print("================================")
-
 
 
 
@@ -1449,6 +1446,7 @@ def admin_deletar_usuario(id):
 
 # ================= START =================
 criar_banco()
+
 
 
 
