@@ -1254,132 +1254,32 @@ def importar_pdf():
 
     id_usuario = session["id_usuario"]
 
-    # GET apenas abre a página
     if request.method == "GET":
         return render_template("importar_pdf.html")
 
-    # proteção contra arquivo grande
     if request.content_length and request.content_length > 3 * 1024 * 1024:
         return "Arquivo muito grande (máx 3MB)", 400
 
     arquivos = request.files.getlist("arquivo")
 
-    conn = conectar_db()
-    c = conn.cursor()
+    if not arquivos:
+        return redirect("/vendas")
 
-    for arquivo in arquivos:
+    # 🔎 DEBUG CONTROLADO
+    try:
+        with pdfplumber.open(arquivos[0]) as pdf:
 
-        texto = ""
+            if not pdf.pages:
+                return "PDF sem páginas"
 
-        try:
-            with pdfplumber.open(arquivo) as pdf:
+            page = pdf.pages[0]
+            texto = page.extract_text() or ""
 
-                if not pdf.pages:
-                    continue
+            # retorna texto bruto na tela
+            return f"<pre>{texto}</pre>"
 
-                page = pdf.pages[0]
-
-                # texto apenas para cliente/data
-                texto = page.extract_text() or ""
-
-                return f"<pre>{texto}</pre>"
-
-
-                # 🔥 tabela real do PDF
-                tabelas = page.extract_tables()
-
-        except Exception as e:
-            print("ERRO PDF:", e)
-            continue
-
-        if not tabelas:
-            continue
-
-        tabela = tabelas[0]
-
-        # ================= CLIENTE =================
-        cliente = "CLIENTE PDF"
-
-        m_cliente = re.search(r"Raz\. Social\.\.\:\s*(.+)", texto)
-        if m_cliente:
-            cliente = m_cliente.group(1).split("Email")[0].strip()
-
-        # ================= DATA =================
-        data_venda = datetime.now().strftime("%Y-%m-%d")
-
-        m_data = re.search(r"Data Neg\.\:\s*(\d{2}/\d{2}/\d{4})", texto)
-        if m_data:
-            data_venda = datetime.strptime(
-                m_data.group(1), "%d/%m/%Y"
-            ).strftime("%Y-%m-%d")
-
-        primeiro_mes = data_venda[:7]
-
-        # ================= PRODUTOS =================
-        itens = []
-        valor_total = 0
-
-        for linha in tabela:
-
-            if not linha:
-                continue
-
-            # remove None
-            linha = [str(c).strip() if c else "" for c in linha]
-
-            linha_texto = " ".join(linha)
-
-            if "BL" not in linha_texto:
-                continue
-
-            try:
-                # ajuste conforme layout típico
-                codigo = linha[0]
-                produto = linha[1]
-                qtd = float(linha[2].replace(",", "."))
-                valor = float(linha[3].replace(".", "").replace(",", "."))
-                total_item = float(linha[4].replace(".", "").replace(",", "."))
-            except:
-                continue
-
-            if qtd <= 0 or valor <= 0:
-                continue
-
-            itens.append((produto, qtd, valor, total_item))
-            valor_total += total_item
-
-        if not itens:
-            continue
-
-        # ================= NÃO DUPLICAR =================
-        c.execute("""
-            SELECT id FROM vendas
-            WHERE cliente=? AND data=? AND valor_total=? AND id_usuario=?
-        """, (cliente, data_venda, valor_total, id_usuario))
-
-        if c.fetchone():
-            continue
-
-        # ================= INSERE VENDA =================
-        c.execute("""
-            INSERT INTO vendas
-            (data, cliente, valor_total, comissao_total, parcelas, primeiro_mes, id_usuario)
-            VALUES (?, ?, ?, 0, 1, ?, ?)
-        """, (data_venda, cliente, valor_total, primeiro_mes, id_usuario))
-
-        id_venda = c.lastrowid
-
-        for item in itens:
-            c.execute("""
-                INSERT INTO itens_venda
-                (id_venda, produto, quantidade, valor_unitario, total_item)
-                VALUES (?, ?, ?, ?, ?)
-            """, (id_venda, item[0], item[1], item[2], item[3]))
-
-    conn.commit()
-    conn.close()
-
-    return redirect("/vendas")
+    except Exception as e:
+        return f"ERRO AO LER PDF: {e}"
 
 
 
@@ -1438,6 +1338,7 @@ def admin_deletar_usuario(id):
 
 # ================= START =================
 criar_banco()
+
 
 
 
