@@ -1262,24 +1262,122 @@ def importar_pdf():
 
     arquivos = request.files.getlist("arquivo")
 
-    if not arquivos:
-        return redirect("/vendas")
+    conn = conectar_db()
+    c = conn.cursor()
 
-    # 🔎 DEBUG CONTROLADO
-    try:
-        with pdfplumber.open(arquivos[0]) as pdf:
+    for arquivo in arquivos:
 
-            if not pdf.pages:
-                return "PDF sem páginas"
+        try:
+            with pdfplumber.open(arquivo) as pdf:
+                if not pdf.pages:
+                    continue
 
-            page = pdf.pages[0]
-            texto = page.extract_text() or ""
+                page = pdf.pages[0]
+                texto = page.extract_text() or ""
 
-            # retorna texto bruto na tela
-            return f"<pre>{texto}</pre>"
+        except Exception as e:
+            print("ERRO PDF:", e)
+            continue
 
-    except Exception as e:
-        return f"ERRO AO LER PDF: {e}"
+        if not texto:
+            continue
+
+        # ================= CLIENTE =================
+        cliente = "CLIENTE PDF"
+
+        m_cliente = re.search(r"Parceiro\.\.\:\s*\d+\s*-\s*(.+?)\s*Fone", texto)
+        if m_cliente:
+            cliente = m_cliente.group(1).strip()
+
+        # ================= DATA =================
+        data_venda = datetime.now().strftime("%Y-%m-%d")
+
+        m_data = re.search(r"Data Neg\.\:\s*(\d{2}/\d{2}/\d{4})", texto)
+        if m_data:
+            data_venda = datetime.strptime(
+                m_data.group(1), "%d/%m/%Y"
+            ).strftime("%Y-%m-%d")
+
+        primeiro_mes = data_venda[:7]
+
+        # ================= PRODUTOS =================
+        itens = []
+        valor_total = 0
+
+        linhas = texto.split("\n")
+
+        for l in linhas:
+
+            l = l.strip()
+
+            # linha de produto começa com número
+            if not re.match(r"^\d+\s", l):
+                continue
+
+            if " BL " not in l:
+                continue
+
+            # exemplo:
+            # 4003 BRA TRICLOPIR ( TRYTOR ) 20LT BL 2 1.200,00 2.400,00 ...
+
+            try:
+
+                partes = l.split(" BL ")
+
+                antes_bl = partes[0].strip()
+                depois_bl = partes[1].strip()
+
+                codigo_desc = antes_bl.split(" ", 1)
+                codigo = codigo_desc[0]
+                produto = codigo_desc[1]
+
+                numeros = depois_bl.split()
+
+                qtd = float(numeros[0].replace(",", "."))
+                valor = float(numeros[1].replace(".", "").replace(",", "."))
+                total_item = float(numeros[2].replace(".", "").replace(",", "."))
+
+            except:
+                continue
+
+            if qtd <= 0 or valor <= 0:
+                continue
+
+            itens.append((produto, qtd, valor, total_item))
+            valor_total += total_item
+
+        if not itens:
+            continue
+
+        # ================= NÃO DUPLICAR =================
+        c.execute("""
+            SELECT id FROM vendas
+            WHERE cliente=? AND data=? AND valor_total=? AND id_usuario=?
+        """, (cliente, data_venda, valor_total, id_usuario))
+
+        if c.fetchone():
+            continue
+
+        # ================= INSERE VENDA =================
+        c.execute("""
+            INSERT INTO vendas
+            (data, cliente, valor_total, comissao_total, parcelas, primeiro_mes, id_usuario)
+            VALUES (?, ?, ?, 0, 1, ?, ?)
+        """, (data_venda, cliente, valor_total, primeiro_mes, id_usuario))
+
+        id_venda = c.lastrowid
+
+        for item in itens:
+            c.execute("""
+                INSERT INTO itens_venda
+                (id_venda, produto, quantidade, valor_unitario, total_item)
+                VALUES (?, ?, ?, ?, ?)
+            """, (id_venda, item[0], item[1], item[2], item[3]))
+
+    conn.commit()
+    conn.close()
+
+    return redirect("/vendas")
 
 
 
@@ -1338,6 +1436,7 @@ def admin_deletar_usuario(id):
 
 # ================= START =================
 criar_banco()
+
 
 
 
