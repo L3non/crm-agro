@@ -1256,9 +1256,6 @@ def importar_pdf():
     if request.method == "GET":
         return render_template("importar_pdf.html")
 
-    if request.content_length and request.content_length > 5 * 1024 * 1024:
-        return "Arquivo muito grande", 400
-
     arquivos = request.files.getlist("arquivo")
 
     conn = conectar_db()
@@ -1268,47 +1265,36 @@ def importar_pdf():
 
         nome_arquivo = arquivo.filename
 
-        # 🔥 numero unico pelo nome do arquivo
         m_num = re.search(r"PEDIDO_VENDA_(\d+)", nome_arquivo)
         numero_unico = m_num.group(1) if m_num else None
 
         if not numero_unico:
             continue
 
-        # anti duplicação usando numero do arquivo
-        c.execute("""
-            SELECT id FROM vendas
-            WHERE observacao=? AND id_usuario=?
-        """, (numero_unico, id_usuario))
-
-        if c.fetchone():
-            continue
-
         try:
             with pdfplumber.open(arquivo) as pdf:
                 if not pdf.pages:
                     continue
-
                 page = pdf.pages[0]
                 texto = page.extract_text() or ""
-
-        except Exception as e:
-            print("ERRO PDF:", e)
+        except:
             continue
 
         if not texto:
             continue
 
-        # CLIENTE
-        cliente = "CLIENTE PDF"
+        # Verifica duplicado usando numero no TEXTO do cliente
+        if numero_unico in texto:
+            pass
 
+        # Cliente
+        cliente = "CLIENTE PDF"
         m_cliente = re.search(r"Parceiro\.\.\:\s*\d+\s*-\s*(.+?)\s*Fone", texto)
         if m_cliente:
             cliente = m_cliente.group(1).strip()
 
-        # DATA
+        # Data
         data_venda = datetime.now().strftime("%Y-%m-%d")
-
         m_data = re.search(r"Data Neg\.\:\s*(\d{2}/\d{2}/\d{4})", texto)
         if m_data:
             data_venda = datetime.strptime(
@@ -1338,9 +1324,7 @@ def importar_pdf():
                 qtd = float(partes[-10].replace(",", "."))
                 valor = float(partes[-9].replace(".", "").replace(",", "."))
                 total_item = float(partes[-1].replace(".", "").replace(",", "."))
-
                 produto = " ".join(partes[1:-10]).strip()
-
             except:
                 continue
 
@@ -1353,11 +1337,20 @@ def importar_pdf():
         if not itens:
             continue
 
+        # Anti duplicação simples (cliente + data + valor_total)
+        c.execute("""
+            SELECT id FROM vendas
+            WHERE cliente=? AND data=? AND valor_total=? AND id_usuario=?
+        """, (cliente, data_venda, valor_total, id_usuario))
+
+        if c.fetchone():
+            continue
+
         c.execute("""
             INSERT INTO vendas
-            (data, cliente, valor_total, comissao_total, parcelas, primeiro_mes, id_usuario, observacao)
-            VALUES (?, ?, ?, 0, 1, ?, ?, ?)
-        """, (data_venda, cliente, valor_total, primeiro_mes, id_usuario, numero_unico))
+            (data, cliente, valor_total, comissao_total, parcelas, primeiro_mes, id_usuario)
+            VALUES (?, ?, ?, 0, 1, ?, ?)
+        """, (data_venda, cliente, valor_total, primeiro_mes, id_usuario))
 
         id_venda = c.lastrowid
 
@@ -1430,6 +1423,7 @@ def admin_deletar_usuario(id):
 
 # ================= START =================
 criar_banco()
+
 
 
 
