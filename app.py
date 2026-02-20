@@ -1310,6 +1310,13 @@ def importar_pdf():
 
         linhas = texto.split("\n")
 
+
+
+
+
+
+        
+
         for l in linhas:
 
             l = l.strip()
@@ -1379,6 +1386,13 @@ def importar_pdf():
 
 
 
+print("========== DEBUG PDF ==========")
+for linha in linhas:
+    print(linha)
+print("================================")
+
+
+
 
 
 # ================= ADMIN USUÁRIOS =================
@@ -1435,6 +1449,7 @@ def admin_deletar_usuario(id):
 
 # ================= START =================
 criar_banco()
+
 
 
 
