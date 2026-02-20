@@ -1282,6 +1282,9 @@ def importar_pdf():
                 # texto apenas para cliente/data
                 texto = page.extract_text() or ""
 
+                return f"<pre>{texto}</pre>"
+
+
                 # 🔥 tabela real do PDF
                 tabelas = page.extract_tables()
 
@@ -1435,6 +1438,7 @@ def admin_deletar_usuario(id):
 
 # ================= START =================
 criar_banco()
+
 
 
 
